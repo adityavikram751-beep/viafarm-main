@@ -1,0 +1,7 @@
+{
+  "version": 2,
+  "env": {
+    "NEXT_PUBLIC_API_URL": "https://viafarm-1.onrender.com"
+  },
+  "regions": ["bom1"]
+}
