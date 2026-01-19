@@ -8,7 +8,7 @@ import socket from "../lib/socket";
 import { useRouter } from "next/navigation";
 
 /* ---------------- CONFIG ---------------- */
-const BASE_URL = "https://viafarm-1.onrender.com";
+const BASE_URL = "https://vi-farm.onrender.com";
 const NOTIF_API = `${BASE_URL}/api/notifications`;
 const DEL_ALL_API = `${NOTIF_API}/delete-all`;
 const PROFILE_API = `${BASE_URL}/api/admin/settings/profile`;
