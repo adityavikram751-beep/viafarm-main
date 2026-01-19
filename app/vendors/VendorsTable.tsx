@@ -117,7 +117,7 @@ export default function Vendors() {
         setLoading(true);
         const token = localStorage.getItem("token");
         const res = await axios.get(
-          "https://viafarm-1.onrender.com/api/admin/vendors",
+          "https://vi-farm.onrender.com/api/admin/vendors",
           { headers: { Authorization: `Bearer ${token}` } }
         );
         setVendors(res.data.data || []);
