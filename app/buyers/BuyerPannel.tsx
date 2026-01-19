@@ -103,6 +103,7 @@ export default function BuyersPanel() {
 
         const data = await res.json();
         const buyersList = data.data || data;
+
         setBuyers(buyersList);
         setFilteredBuyers(buyersList);
       } catch (err: any) {
@@ -112,6 +113,7 @@ export default function BuyersPanel() {
         setLoading(false);
       }
     };
+
     fetchBuyers();
   }, []);
 
@@ -217,7 +219,10 @@ export default function BuyersPanel() {
   const getLocation = (addresses: Address[]) => {
     if (!addresses?.length) return "—";
     const addr = addresses.find((a) => a.city || a.district || a.locality);
-    return `${addr?.locality || ""}, ${addr?.city || addr?.district || ""}`.replace(/, $/, "");
+    return `${addr?.locality || ""}, ${addr?.city || addr?.district || ""}`.replace(
+      /, $/,
+      ""
+    );
   };
 
   const totalPages = Math.ceil(filteredBuyers.length / rowsPerPage);
@@ -226,19 +231,30 @@ export default function BuyersPanel() {
     currentPage * rowsPerPage
   );
 
+  // ✅ MAIN FIX: Category Normalizer (same names keep, but API category match properly)
+  const normalizeCategory = (cat: string) => {
+    const c = (cat || "").toLowerCase().trim();
+
+    // handle variations from API
+    if (c.includes("fruit")) return "fruits";
+    if (c.includes("vegetable")) return "vegetables";
+    if (c.includes("plant")) return "plants";
+    if (c.includes("seed")) return "seeds";
+    if (c.includes("handicraft") || c.includes("hand craft")) return "handicrafts";
+
+    return c;
+  };
+
+  // ✅ Filter Orders by Selected Category (WORKING)
   const filteredOrders =
     selectedCategory === "All"
       ? buyerDetail?.orders || []
       : buyerDetail?.orders?.filter((order) =>
-          order.products.some((p) => {
-            const category = p.product.category?.toLowerCase() || "";
-            const selected = selectedCategory.toLowerCase();
-            return (
-              category === selected ||
-              category.includes(selected) ||
-              (selected === "fruits" && category.includes("fruit")) ||
-              (selected === "vegetables" && category.includes("vegetable"))
-            );
+          order.products.some((item) => {
+            const apiCat = normalizeCategory(item?.product?.category || "");
+            const selected = normalizeCategory(selectedCategory);
+
+            return apiCat === selected;
           })
         ) || [];
 
@@ -270,6 +286,7 @@ export default function BuyersPanel() {
             className="bg-transparent outline-none text-sm w-full"
           />
         </div>
+
         <button
           onClick={handleSort}
           className="flex items-center gap-2 border border-gray-300 bg-white px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-200"
@@ -290,6 +307,7 @@ export default function BuyersPanel() {
               <th className="text-center p-3">Action</th>
             </tr>
           </thead>
+
           <tbody>
             {paginatedBuyers.map((buyer, i) => (
               <tr
@@ -300,6 +318,7 @@ export default function BuyersPanel() {
                 <td className="p-3">{getLocation(buyer.addresses)}</td>
                 <td className="p-3">{buyer.mobileNumber}</td>
                 <td className="p-3">{buyer.totalOrdersAsBuyer}</td>
+
                 <td className="text-center relative">
                   <button
                     onClick={() => setOpenMenu(openMenu === i ? null : i)}
@@ -307,6 +326,7 @@ export default function BuyersPanel() {
                   >
                     <MoreVertical className="w-4 h-4 text-gray-600" />
                   </button>
+
                   {openMenu === i && (
                     <div className="absolute right-8 top-8 bg-white shadow-lg rounded-lg text-sm w-40 py-2 z-50 border">
                       <button
@@ -336,6 +356,7 @@ export default function BuyersPanel() {
         <span>
           {currentPage} of {totalPages} pages
         </span>
+
         <div className="flex items-center gap-2">
           <button
             onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
@@ -344,6 +365,7 @@ export default function BuyersPanel() {
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
+
           <button
             onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
             disabled={currentPage === totalPages}
@@ -395,17 +417,22 @@ export default function BuyersPanel() {
 
                 <p className="text-[15px] text-gray-700 mb-1">
                   <span className="font-medium text-gray-800">Location</span> –{" "}
-{Object.values(buyerDetail.buyer.location || {}).join(", ") || "—"}
+                  {Object.values(buyerDetail.buyer.location || {}).join(", ") ||
+                    "—"}
                 </p>
 
                 <p className="text-[15px] text-gray-700 mb-1">
-                  <span className="font-medium text-gray-800">Contact No.</span> –{" "}
-                  {buyerDetail.buyer.contactNo || "—"}
+                  <span className="font-medium text-gray-800">
+                    Contact No.
+                  </span>{" "}
+                  – {buyerDetail.buyer.contactNo || "—"}
                 </p>
 
                 <p className="text-[15px] text-gray-700 mb-1">
-                  <span className="font-medium text-gray-800">Total Orders</span> –{" "}
-                  {buyerDetail.buyer.totalOrders || 0}
+                  <span className="font-medium text-gray-800">
+                    Total Orders
+                  </span>{" "}
+                  – {buyerDetail.buyer.totalOrders || 0}
                 </p>
               </div>
             </div>
@@ -415,18 +442,8 @@ export default function BuyersPanel() {
               <h3 className="text-gray-800 font-semibold text-[15px]">
                 Orders ({filteredOrders.length})
               </h3>
-              <select
-                className="border px-3 py-1 rounded-lg text-sm text-gray-700 outline-none"
-                onChange={(e) => setSelectedCategory(e.target.value)}
-                value={selectedCategory}
-              >
-                <option value="All">All</option>
-                <option value="Fruits">Fruits</option>
-                <option value="Vegetables">Vegetables</option>
-                <option value="Plants">Plants</option>
-                <option value="Seeds">Seeds</option>
-                <option value="Handicrafts">Handicrafts</option>
-              </select>
+
+            
             </div>
 
             {/* Orders */}
@@ -436,7 +453,7 @@ export default function BuyersPanel() {
               <div className="space-y-4">
                 {filteredOrders.map((order) =>
                   order.products.map((item, idx) => {
-                    const p = item?.product || {};
+                    const p = item?.product || ({} as any);
                     const unit = p?.unit || "kg";
                     const quantity = p?.quantity || 10;
 
@@ -460,6 +477,7 @@ export default function BuyersPanel() {
                           height={120}
                           className="object-cover h-[130px] w-[160px]"
                         />
+
                         <div className="absolute top-2 right-3 bg-white border border-gray-300 text-gray-700 text-xs font-semibold px-2 py-1 rounded-full flex items-center gap-1 shadow-sm">
                           <span className="text-yellow-500">⭐</span>
                           {p?.rating || "9.2"}
@@ -469,9 +487,11 @@ export default function BuyersPanel() {
                           <h4 className="text-lg font-semibold text-gray-800">
                             {p?.name || "Unnamed Product"}
                           </h4>
+
                           <p className="text-gray-800 text-[15px] mt-1">
                             by {vendorName}
                           </p>
+
                           <p className="text-gray-800 text-[14px] mt-2">
                             Price:{" "}
                             <span className="font-medium">
