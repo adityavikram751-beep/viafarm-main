@@ -492,7 +492,8 @@ export default function ManageApp() {
             const pr = await axios
               .get(SPECIAL_CATEGORY_PRODUCTS_GET(id), conf)
               .catch(() => null);
-            const list = pr?.data?.products ?? [];
+          const list = pr?.data?.data ?? pr?.data?.products ?? [];
+
             return [id, Array.isArray(list) ? list.length : 0] as [string, number];
           } catch {
             return [id, 0] as [string, number];
@@ -549,7 +550,7 @@ export default function ManageApp() {
     if (sid) {
       try {
         const res = await axios.get(SPECIAL_CATEGORY_PRODUCTS_GET(sid), getAuthConfig());
-        const rawProducts = res.data?.products ?? [];
+const rawProducts = res.data?.data ?? res.data?.products ?? [];
         const ids = (rawProducts || [])
           .map((p: any) => getProductId(p))
           .filter(Boolean);
@@ -671,7 +672,7 @@ export default function ManageApp() {
         getAuthConfig()
       );
 
-      const rawProducts = res.data?.products ?? [];
+const rawProducts = res.data?.data ?? res.data?.products ?? [];
       const normalized = rawProducts.map(normalizeProduct);
 
       setSelectedSpecialProducts(normalized);
