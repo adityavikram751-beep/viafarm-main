@@ -2,7 +2,7 @@
 /* eslint-disable @next/next/no-img-element */
 "use client";
 
-import React, { ChangeEvent, useEffect, useState } from "react";
+import React, { ChangeEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
   Edit,
@@ -15,6 +15,7 @@ import {
   Phone,
   Mail,
   Clock,
+  ChevronLeft,
 } from "lucide-react";
 
 /* ---------------- CONFIG ---------------- */
@@ -31,6 +32,21 @@ const ABOUT_BASE = `${BASE_API}/api/admin/manage-app/About-us`;
 
 /* ---------------- VARIETIES ENDPOINT ---------------- */
 const VARIETIES_BASE = `${BASE_API}/api/admin/variety`;
+
+/* ---------------- SPECIAL CATEGORIES ENDPOINTS ---------------- */
+const SPECIAL_CATEGORIES_GET = `${BASE_API}/api/admin/special-categories`;
+const SPECIAL_CATEGORIES_POST = `${BASE_API}/api/admin/admin/special-categories`;
+const SPECIAL_CATEGORIES_PUT = (id: string) =>
+  `${BASE_API}/api/admin/admin/special-categories/${id}`;
+const SPECIAL_CATEGORIES_DELETE = (id: string) =>
+  `${BASE_API}/api/admin/admin/special-categories/${id}`;
+
+/* ✅ NEW API FOR SPECIAL CATEGORY PRODUCTS */
+const SPECIAL_CATEGORY_PRODUCTS_GET = (id: string) =>
+  `${BASE_API}/api/admin/special-categories/${id}/products`;
+
+/* ---------------- PRODUCTS ENDPOINT ---------------- */
+const PRODUCTS_GET = `${BASE_API}/api/admin/products`;
 
 /* ---------------- TYPES ---------------- */
 interface CategoryImage {
@@ -64,6 +80,25 @@ type Variety = {
   categoryName?: string;
 };
 
+type Product = {
+  _id?: string;
+  id?: string;
+  name?: string;
+  title?: string;
+  image?: any;
+  images?: any[];
+};
+
+type SpecialCategory = {
+  _id?: string;
+  id?: string;
+  name: string;
+  image?: { url?: string; publicId?: string; public_id?: string } | string | null;
+  products: any[];
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 /* ---------------- COMPONENT ---------------- */
 export default function ManageApp() {
   const tabs: { id: string; label: string }[] = [
@@ -79,9 +114,10 @@ export default function ManageApp() {
   const productInnerTabs = [
     { id: "categories", label: "Product Categories" },
     { id: "varieties", label: "Product Varieties" },
+    { id: "special", label: "Special Categories" },
   ];
   const [productInnerActive, setProductInnerActive] = useState<
-    "categories" | "varieties"
+    "categories" | "varieties" | "special"
   >("categories");
 
   /* CATEGORIES */
@@ -121,26 +157,65 @@ export default function ManageApp() {
   const [varModalCategoryId, setVarModalCategoryId] = useState<string | null>(
     null
   );
-  const [varModalCategoryName, setVarModalCategoryName] = useState<
-    string | null
-  >(null);
+  const [varModalCategoryName, setVarModalCategoryName] = useState<string | null>(
+    null
+  );
   const [varModalName, setVarModalName] = useState("");
   const [isVarEdit, setIsVarEdit] = useState(false);
   const [editingVarId, setEditingVarId] = useState<string | null>(null);
 
-  // pending list inside modal
   const [varModalPending, setVarModalPending] = useState<Variety[]>([]);
 
   /* separate search for categories */
   const [categorySearch, setCategorySearch] = useState("");
 
+  /* ---------------- SPECIAL CATEGORIES STATES ---------------- */
+  const [specialLoading, setSpecialLoading] = useState(false);
+  const [specialSaving, setSpecialSaving] = useState(false);
+  const [specialCategories, setSpecialCategories] = useState<SpecialCategory[]>([]);
+
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
+
+  const [specialSearch, setSpecialSearch] = useState("");
+  const [showSpecialModal, setShowSpecialModal] = useState(false);
+  const [isSpecialEdit, setIsSpecialEdit] = useState(false);
+
+  const [specialEditId, setSpecialEditId] = useState<string | null>(null);
+  const [specialName, setSpecialName] = useState("");
+  const [specialImageFile, setSpecialImageFile] = useState<File | null>(null);
+  const [specialImagePreview, setSpecialImagePreview] = useState<string | null>(
+    null
+  );
+
+  // selected products ids
+  const [specialSelectedProducts, setSpecialSelectedProducts] = useState<string[]>(
+    []
+  );
+
+  const [selectedSpecial, setSelectedSpecial] = useState<SpecialCategory | null>(
+    null
+  );
+
+  /* ✅ NEW STATE: selected category products from new API */
+  const [selectedSpecialProducts, setSelectedSpecialProducts] = useState<Product[]>(
+    []
+  );
+  const [selectedSpecialProductsLoading, setSelectedSpecialProductsLoading] =
+    useState(false);
+
+  /* ✅ NEW: products count map (for cards) */
+  const [specialProductsCountMap, setSpecialProductsCountMap] = useState<
+    Record<string, number>
+  >({});
+
   /* COUPONS */
   const [couponsRaw, setCouponsRaw] = useState<ApiCoupon[]>([]);
   const [couponLoading, setCouponLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
-  const [couponFilter, setCouponFilter] = useState<
-    "all" | "active" | "expired"
-  >("all");
+  const [couponFilter, setCouponFilter] = useState<"all" | "active" | "expired">(
+    "all"
+  );
   const couponsPerPage = 12;
   const [currentPage, setCurrentPage] = useState(1);
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
@@ -168,15 +243,14 @@ export default function ManageApp() {
   const [showAddCoupon, setShowAddCoupon] = useState(false);
   const [formCode, setFormCode] = useState("");
   const [formDiscount, setFormDiscount] = useState<number | "">("");
-  const [formDiscountType, setFormDiscountType] = useState<
-    "Percentage" | "Fixed"
-  >("Percentage");
+  const [formDiscountType, setFormDiscountType] = useState<"Percentage" | "Fixed">(
+    "Percentage"
+  );
   const [formMinOrder, setFormMinOrder] = useState<number | "">("");
   const [formUsageLimit, setFormUsageLimit] = useState<number | "">("");
   const [formStartDate, setFormStartDate] = useState("");
   const [formExpiryDate, setFormExpiryDate] = useState("");
-  // <-- CHANGED: multiple categories selection. default to ["All Products"]
-const [formAppliesTo, setFormAppliesTo] = useState<string>("All Products");
+  const [formAppliesTo, setFormAppliesTo] = useState<string>("All Products");
   const [creatingCoupon, setCreatingCoupon] = useState(false);
   const [formTotalUsage, setFormTotalUsage] = useState("");
 
@@ -201,9 +275,7 @@ const [formAppliesTo, setFormAppliesTo] = useState<string>("All Products");
     operatingHours?: string;
   } | null>(null);
   const [loadingSupport, setLoadingSupport] = useState(false);
-  const [supportEditField, setSupportEditField] = useState<string | null>(
-    null
-  );
+  const [supportEditField, setSupportEditField] = useState<string | null>(null);
   const [supportTempValue, setSupportTempValue] = useState<string>("");
 
   /* helper auth */
@@ -247,6 +319,70 @@ const [formAppliesTo, setFormAppliesTo] = useState<string>("All Products");
     };
   };
 
+  const normalizeProduct = (p: any): Product => {
+    const id = p?._id ?? p?.id ?? "";
+    const name = p?.name ?? p?.title ?? "Unnamed Product";
+    let imgUrl: string | undefined = undefined;
+
+    if (p?.image) {
+      if (typeof p.image === "string") imgUrl = p.image;
+      else if (typeof p.image === "object")
+        imgUrl = p.image.url ?? p.image.secure_url;
+    }
+    if (!imgUrl && Array.isArray(p?.images) && p.images.length > 0) {
+      const first = p.images[0];
+      if (typeof first === "string") imgUrl = first;
+      else if (typeof first === "object") imgUrl = first.url ?? first.secure_url;
+    }
+
+    return {
+      _id: id,
+      name,
+      image: imgUrl ? { url: imgUrl } : p?.image ?? null,
+      images: p?.images ?? [],
+    };
+  };
+
+  const normalizeSpecialCategory = (s: any): SpecialCategory => {
+    const id = s?._id ?? s?.id ?? String(Math.random()).slice(2);
+    const name = s?.name ?? "Unnamed";
+    const image = s?.image ?? null;
+    const products = s?.products ?? s?.productIds ?? s?.items ?? [];
+    return {
+      _id: id,
+      name,
+      image,
+      products,
+      createdAt: s?.createdAt,
+      updatedAt: s?.updatedAt,
+    };
+  };
+
+  const getSpecialImageUrl = (sc: SpecialCategory) => {
+    const img = sc?.image;
+    if (!img) return "";
+    if (typeof img === "string") return img;
+    if (typeof img === "object") return img.url ?? "";
+    return "";
+  };
+
+  const getProductId = (p: any) => String(p?._id ?? p?.id ?? "");
+  const getProductName = (p: any) =>
+    String(p?.name ?? p?.title ?? "Unnamed Product");
+  const getProductImage = (p: any) => {
+    if (p?.image) {
+      if (typeof p.image === "string") return p.image;
+      if (typeof p.image === "object")
+        return p.image.url ?? p.image.secure_url ?? "";
+    }
+    if (Array.isArray(p?.images) && p.images.length > 0) {
+      const first = p.images[0];
+      if (typeof first === "string") return first;
+      if (typeof first === "object") return first.url ?? first.secure_url ?? "";
+    }
+    return "";
+  };
+
   const fetchCategories = async () => {
     try {
       setLoading(true);
@@ -268,9 +404,7 @@ const [formAppliesTo, setFormAppliesTo] = useState<string>("All Products");
   const fetchVarieties = async () => {
     try {
       setVarLoading(true);
-      const res = await axios.get(VARIETIES_BASE, getAuthConfig()).catch(
-        () => null
-      );
+      const res = await axios.get(VARIETIES_BASE, getAuthConfig()).catch(() => null);
       const raw = res?.data ?? null;
       let arr: any[] = [];
       if (!raw) arr = [];
@@ -304,11 +438,599 @@ const [formAppliesTo, setFormAppliesTo] = useState<string>("All Products");
     }
   };
 
+  const fetchProducts = async () => {
+    try {
+      setProductsLoading(true);
+      const res = await axios.get(PRODUCTS_GET, getAuthConfig()).catch(() => null);
+      const raw = res?.data ?? null;
+
+      let arr: any[] = [];
+      if (!raw) arr = [];
+      else if (Array.isArray(raw)) arr = raw;
+      else if (Array.isArray(raw.products)) arr = raw.products;
+      else if (Array.isArray(raw.data)) arr = raw.data;
+      else arr = [];
+
+      const normalized = arr.map(normalizeProduct).filter((p) => getProductId(p));
+      setAllProducts(normalized);
+    } catch (err) {
+      console.error("fetchProducts", err);
+      setAllProducts([]);
+    } finally {
+      setProductsLoading(false);
+    }
+  };
+
+  /* ✅ fetch special categories + count of products using new API */
+  const fetchSpecialCategories = async () => {
+    try {
+      setSpecialLoading(true);
+      const res = await axios
+        .get(SPECIAL_CATEGORIES_GET, getAuthConfig())
+        .catch(() => null);
+      const raw = res?.data ?? null;
+
+      let arr: any[] = [];
+      if (!raw) arr = [];
+      else if (Array.isArray(raw)) arr = raw;
+      else if (Array.isArray(raw.data)) arr = raw.data;
+      else if (Array.isArray(raw.specialCategories)) arr = raw.specialCategories;
+      else if (Array.isArray(raw.categories)) arr = raw.categories;
+      else arr = [];
+
+      const normalized = arr.map(normalizeSpecialCategory);
+      setSpecialCategories(normalized);
+
+      // ✅ load counts for each category (from NEW API)
+      const conf = getAuthConfig();
+      const countPairs = await Promise.all(
+        normalized.map(async (sc: SpecialCategory) => {
+          const id = sc._id ?? sc.id ?? "";
+          if (!id) return [id, 0] as [string, number];
+
+          try {
+            const pr = await axios
+              .get(SPECIAL_CATEGORY_PRODUCTS_GET(id), conf)
+              .catch(() => null);
+            const list = pr?.data?.products ?? [];
+            return [id, Array.isArray(list) ? list.length : 0] as [string, number];
+          } catch {
+            return [id, 0] as [string, number];
+          }
+        })
+      );
+
+      const map: Record<string, number> = {};
+      countPairs.forEach(([id, count]) => {
+        if (id) map[id] = count;
+      });
+      setSpecialProductsCountMap(map);
+    } catch (err) {
+      console.error("fetchSpecialCategories", err);
+      setSpecialCategories([]);
+      setSpecialProductsCountMap({});
+    } finally {
+      setSpecialLoading(false);
+    }
+  };
+
+  /* ---------------- SPECIAL CATEGORY HANDLERS ---------------- */
+  const openAddSpecialModal = async () => {
+    setIsSpecialEdit(false);
+    setSpecialEditId(null);
+    setSpecialName("");
+    setSpecialImageFile(null);
+    setSpecialImagePreview(null);
+    setSpecialSelectedProducts([]);
+    setShowSpecialModal(true);
+    setSelectedSpecial(null);
+
+    await fetchProducts();
+  };
+
+  /* ✅ Edit open => fetch products of that category from NEW API and tick them */
+  const openEditSpecialModal = async (sc: SpecialCategory) => {
+    setIsSpecialEdit(true);
+    const sid = sc._id ?? sc.id ?? null;
+    setSpecialEditId(sid);
+    setSpecialName(sc.name ?? "");
+
+    // image edit off (only preview show)
+    setSpecialImageFile(null);
+    setSpecialImagePreview(getSpecialImageUrl(sc) || null);
+
+    setShowSpecialModal(true);
+    setSelectedSpecial(null);
+
+    // ensure all products loaded
+    await fetchProducts();
+
+    // ✅ fetch selected products from new API
+    if (sid) {
+      try {
+        const res = await axios.get(SPECIAL_CATEGORY_PRODUCTS_GET(sid), getAuthConfig());
+        const rawProducts = res.data?.products ?? [];
+        const ids = (rawProducts || [])
+          .map((p: any) => getProductId(p))
+          .filter(Boolean);
+
+        setSpecialSelectedProducts(ids);
+      } catch (err) {
+        console.error("edit fetch selected products", err);
+
+        // fallback (old sc.products)
+        const fallbackIds = (sc.products ?? [])
+          .map((p: any) => (typeof p === "string" ? p : getProductId(p)))
+          .filter(Boolean);
+        setSpecialSelectedProducts(fallbackIds);
+      }
+    }
+  };
+
+  const closeSpecialModal = () => {
+    setShowSpecialModal(false);
+    setIsSpecialEdit(false);
+    setSpecialEditId(null);
+    setSpecialName("");
+    setSpecialImageFile(null);
+    setSpecialImagePreview(null);
+    setSpecialSelectedProducts([]);
+  };
+
+  const handleSpecialImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] ?? null;
+    setSpecialImageFile(f);
+    setSpecialImagePreview(f ? URL.createObjectURL(f) : null);
+  };
+
+  const handleSaveSpecialCategory = async () => {
+    if (!specialName.trim()) return alert("Special category name required.");
+    if (specialSelectedProducts.length === 0)
+      return alert("Select at least 1 product.");
+
+    try {
+      setSpecialSaving(true);
+      const conf = getAuthConfig();
+
+      // ✅ EDIT => JSON body (as you said)
+      if (isSpecialEdit && specialEditId) {
+        const payload = {
+          name: specialName.trim(),
+          products: specialSelectedProducts,
+        };
+
+        await axios.put(SPECIAL_CATEGORIES_PUT(specialEditId), payload, {
+          ...conf,
+          headers: { ...(conf.headers ?? {}), "Content-Type": "application/json" },
+        });
+
+        alert("Special category updated.");
+        closeSpecialModal();
+        await fetchSpecialCategories();
+        return;
+      }
+
+      // ✅ CREATE => FormData (image upload required)
+      const form = new FormData();
+      form.append("name", specialName.trim());
+
+      if (specialImageFile) {
+        form.append("image", specialImageFile);
+      }
+
+      // send product ids
+      specialSelectedProducts.forEach((id) => form.append("products[]", id));
+      specialSelectedProducts.forEach((id) => form.append("productIds[]", id));
+
+      await axios.post(SPECIAL_CATEGORIES_POST, form, {
+        ...conf,
+        headers: { ...(conf.headers ?? {}), "Content-Type": "multipart/form-data" },
+      });
+
+      alert("Special category created.");
+      closeSpecialModal();
+      await fetchSpecialCategories();
+    } catch (err) {
+      console.error("save special category", err);
+      alert("Failed to save special category.");
+    } finally {
+      setSpecialSaving(false);
+    }
+  };
+
+  const handleDeleteSpecialCategory = async (id: string, name: string) => {
+    if (!confirm(`Delete special category "${name}"?`)) return;
+    try {
+      await axios.delete(SPECIAL_CATEGORIES_DELETE(id), getAuthConfig());
+      setSpecialCategories((prev) => prev.filter((s) => (s._id ?? s.id) !== id));
+      setSpecialProductsCountMap((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
+
+      if (selectedSpecial && (selectedSpecial._id ?? selectedSpecial.id) === id) {
+        setSelectedSpecial(null);
+      }
+      alert("Special category deleted.");
+    } catch (err) {
+      console.error("delete special category", err);
+      alert("Failed to delete special category.");
+    }
+  };
+
+  /* ✅ CLICK SPECIAL CATEGORY => FETCH PRODUCTS FROM NEW API */
+  const handleOpenSpecialProducts = async (sc: SpecialCategory) => {
+    setSelectedSpecial(sc);
+    setSelectedSpecialProducts([]);
+    try {
+      setSelectedSpecialProductsLoading(true);
+
+      const res = await axios.get(
+        SPECIAL_CATEGORY_PRODUCTS_GET(sc._id ?? sc.id ?? ""),
+        getAuthConfig()
+      );
+
+      const rawProducts = res.data?.products ?? [];
+      const normalized = rawProducts.map(normalizeProduct);
+
+      setSelectedSpecialProducts(normalized);
+    } catch (err) {
+      console.error("fetch special category products", err);
+      setSelectedSpecialProducts([]);
+    } finally {
+      setSelectedSpecialProductsLoading(false);
+    }
+  };
+
+  /* ---------------- EFFECTS ---------------- */
+  useEffect(() => {
+    if (activeTab === "products") {
+      fetchCategories();
+      fetchVarieties();
+    }
+    if (activeTab === "coupons") fetchCoupons();
+    if (activeTab === "notifications") fetchNotifSettings();
+    if (activeTab === "customersupport") fetchSupport();
+    if (activeTab === "terms") fetchTerms();
+    if (activeTab === "about") fetchAbout();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, termsType]);
+
+  useEffect(() => {
+    if (activeTab === "products" && productInnerActive === "special") {
+      fetchSpecialCategories();
+      fetchProducts();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, productInnerActive]);
+
+  /* ---------------- MODAL / UI HANDLERS (CATEGORIES) ---------------- */
+  const addNewBlock = () => setAddBlocks((s) => [...s, emptyBlock()]);
+  const removeBlock = (id: string) =>
+    setAddBlocks((s) => s.filter((b) => b.id !== id));
+  const updateBlockName = (id: string, v: string) =>
+    setAddBlocks((s) => s.map((b) => (b.id === id ? { ...b, name: v } : b)));
+  const updateBlockFile = (id: string, f: File | null) =>
+    setAddBlocks((s) =>
+      s.map((b) =>
+        b.id === id
+          ? { ...b, file: f, preview: f ? URL.createObjectURL(f) : null }
+          : b
+      )
+    );
+  const openAddModal = () => {
+    setIsEditMode(false);
+    setAddBlocks([emptyBlock()]);
+    setShowCategoryModal(true);
+    setProductInnerActive("categories");
+  };
+  const openEditModal = (cat: Category) => {
+    setIsEditMode(true);
+    setEditId(cat._id ?? cat.name ?? null);
+    setEditName(cat.name);
+    setEditFile(null);
+    setEditPreview(cat.image?.url ?? null);
+    setShowCategoryModal(true);
+    setProductInnerActive("categories");
+  };
+  const closeCategoryModal = () => {
+    setShowCategoryModal(false);
+    setIsEditMode(false);
+    setEditId(null);
+    setEditName("");
+    setEditFile(null);
+    setEditPreview(null);
+    setAddBlocks([emptyBlock()]);
+    fetchCategories();
+  };
+  const handleAddFileChange = (e: ChangeEvent<HTMLInputElement>, id: string) => {
+    const f = e.target.files?.[0] ?? null;
+    updateBlockFile(id, f);
+  };
+  const handleEditFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] ?? null;
+    setEditFile(f);
+    setEditPreview(f ? URL.createObjectURL(f) : null);
+  };
+
+  const handleSaveAdds = async () => {
+    const nonEmpty = addBlocks.filter((b) => b.name.trim() !== "" || b.file);
+    if (nonEmpty.length === 0)
+      return alert("Please add at least one category (name or image).");
+    for (const b of nonEmpty) {
+      if (!b.name.trim()) return alert("Each category needs a name.");
+    }
+    try {
+      setSaving(true);
+      const conf = getAuthConfig();
+      const created: Category[] = [];
+      for (const b of nonEmpty) {
+        const form = new FormData();
+        form.append("name", b.name.trim());
+        if (b.file) form.append("image", b.file);
+        const res = await axios
+          .post(CATEGORIES_BASE, form, {
+            ...conf,
+            headers: {
+              ...(conf.headers ?? {}),
+              "Content-Type": "multipart/form-data",
+            },
+          })
+          .catch(() => null);
+        const item =
+          res?.data?.data ??
+          res?.data ?? {
+            _id: String(Math.random()).slice(2),
+            name: b.name.trim(),
+            image: b.file ? { url: b.preview } : null,
+          };
+        created.push(normalizeCategoryItem(item));
+      }
+      setCategories((prev) => [...created, ...prev]);
+      alert("Categories added successfully.");
+      setAddBlocks([emptyBlock()]);
+      fetchCategories();
+    } catch (err) {
+      console.error("save adds error", err);
+      alert("Failed to add categories.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editId) return;
+    if (!editName.trim()) return alert("Please enter category name.");
+    try {
+      setSaving(true);
+      const form = new FormData();
+      form.append("name", editName.trim());
+      if (editFile) form.append("image", editFile);
+      const conf = getAuthConfig();
+      const res = await axios
+        .put(`${CATEGORIES_BASE}/${editId}`, form, {
+          ...conf,
+          headers: {
+            ...(conf.headers ?? {}),
+            "Content-Type": "multipart/form-data",
+          },
+        })
+        .catch(() => null);
+      if (res?.data?.success && res?.data?.data) {
+        const updated = normalizeCategoryItem(res.data.data);
+        setCategories((prev) =>
+          prev.map((p) => (p._id === updated._id ? updated : p))
+        );
+      } else {
+        fetchCategories();
+      }
+      alert("Category updated.");
+      closeCategoryModal();
+    } catch (err) {
+      console.error("save edit error", err);
+      alert("Failed to update category.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    const name = categories.find((c) => (c._id ?? c.name) === id)?.name ?? "";
+    if (!confirm(`Delete category "${name}"? This cannot be undone.`)) return;
+    try {
+      setCategories((prev) => prev.filter((c) => (c._id ?? c.name) !== id));
+      await axios.delete(`${CATEGORIES_BASE}/${id}`, getAuthConfig()).catch(() => null);
+      alert("Category deleted successfully.");
+      fetchCategories();
+      setVarieties((prev) => prev.filter((v) => v.categoryId !== id));
+    } catch (err) {
+      console.error("delete category", err);
+      alert("Failed to delete category.");
+      fetchCategories();
+    }
+  };
+
+  /* ---------------- VARIETY HANDLERS ---------------- */
+  const openAddVarietyModal = (categoryId?: string, categoryName?: string) => {
+    setIsVarEdit(false);
+    setEditingVarId(null);
+    setVarModalName("");
+    setVarModalCategoryId(categoryId ?? null);
+    setVarModalCategoryName(categoryName ?? null);
+    setVarModalPending([]);
+    setShowVarModal(true);
+    setProductInnerActive("varieties");
+  };
+
+  const openEditVarietyModal = (v: Variety) => {
+    setIsVarEdit(true);
+    setEditingVarId(v._id ?? null);
+    setVarModalName(v.name);
+    setVarModalCategoryId(v.categoryId);
+    setVarModalCategoryName(
+      v.categoryName ??
+        categories.find((c) => (c._id ?? c.name) === v.categoryId)?.name ??
+        ""
+    );
+    setVarModalPending([]);
+    setShowVarModal(true);
+    setProductInnerActive("varieties");
+  };
+
+  const closeVarModal = () => {
+    setShowVarModal(false);
+    setVarModalCategoryId(null);
+    setVarModalCategoryName(null);
+    setVarModalName("");
+    setIsVarEdit(false);
+    setEditingVarId(null);
+    setVarModalPending([]);
+    fetchVarieties();
+  };
+
+  const handleLocalAddVariety = (e?: React.MouseEvent) => {
+    if (e) e.preventDefault();
+    const trimmedName = varModalName.trim();
+    if (!varModalCategoryId) return alert("Select category.");
+    if (!trimmedName) return alert("Enter variety name first to add.");
+    const duplicateInPending = varModalPending.some(
+      (p) =>
+        p.name.toLowerCase() === trimmedName.toLowerCase() &&
+        p.categoryId === varModalCategoryId
+    );
+    const duplicateInExisting = varieties.some(
+      (v) =>
+        v.name.toLowerCase() === trimmedName.toLowerCase() &&
+        v.categoryId === varModalCategoryId
+    );
+    if (duplicateInPending || duplicateInExisting) {
+      return alert("This variety already exists (or is pending) for this category.");
+    }
+
+    const created: Variety = {
+      _id: `pending-${String(Math.random()).slice(2, 10)}`,
+      name: trimmedName,
+      categoryId: varModalCategoryId,
+      categoryName:
+        varModalCategoryName ??
+        categories.find((c) => (c._id ?? c.name) === varModalCategoryId)?.name ??
+        "",
+    };
+    setVarModalPending((prev) => [...prev, created]);
+    setVarModalName("");
+  };
+
+  const handleRemovePending = (id: string) => {
+    setVarModalPending((prev) => prev.filter((p) => p._id !== id));
+  };
+
+  const handleSaveVariety = async () => {
+    if (!varModalCategoryId) return alert("Select category.");
+    if (isVarEdit && editingVarId) {
+      if (!varModalName.trim()) return alert("Enter variety name.");
+      try {
+        setVarLoading(true);
+        const categoryNameToSend =
+          varModalCategoryName ??
+          categories.find((c) => (c._id ?? c.name) === varModalCategoryId)?.name ??
+          "";
+        const payload = { name: varModalName.trim(), category: categoryNameToSend };
+        await axios
+          .put(`${VARIETIES_BASE}/${editingVarId}`, payload, getAuthConfig())
+          .catch(() => null);
+
+        alert("Variety updated.");
+        closeVarModal();
+      } catch (err) {
+        console.error("save variety (edit)", err);
+        alert("Failed to update variety.");
+      } finally {
+        setVarLoading(false);
+      }
+      return;
+    }
+
+    try {
+      setVarLoading(true);
+      const conf = getAuthConfig();
+
+      if (varModalPending.length > 0) {
+        for (const p of varModalPending) {
+          const payload = {
+            name: p.name,
+            category:
+              p.categoryName ??
+              categories.find((c) => (c._id ?? c.name) === p.categoryId)?.name ??
+              "",
+          };
+          await axios
+            .post(VARIETIES_BASE, payload, {
+              ...conf,
+              headers: {
+                ...(conf.headers ?? {}),
+                "Content-Type": "application/json",
+              },
+            })
+            .catch(() => null);
+        }
+        alert("Varieties added.");
+        setVarModalPending([]);
+        closeVarModal();
+        return;
+      }
+
+      if (varModalName.trim()) {
+        const payload = {
+          name: varModalName.trim(),
+          category:
+            varModalCategoryName ??
+            categories.find((c) => (c._id ?? c.name) === varModalCategoryId)?.name ??
+            "",
+        };
+        await axios
+          .post(VARIETIES_BASE, payload, {
+            ...conf,
+            headers: {
+              ...(conf.headers ?? {}),
+              "Content-Type": "application/json",
+            },
+          })
+          .catch(() => null);
+
+        alert("Variety added.");
+        setVarModalName("");
+        closeVarModal();
+        return;
+      }
+
+      return alert("Add a variety first (type a name or use the Add button).");
+    } catch (err) {
+      console.error("save variety", err);
+      alert("Failed to save variety.");
+    } finally {
+      setVarLoading(false);
+    }
+  };
+
+  const handleDeleteVariety = async (id: string, name: string) => {
+    if (!confirm(`Delete variety "${name}"?`)) return;
+    try {
+      setVarieties((prev) => prev.filter((v) => (v._id ?? v.name) !== id));
+      await axios.delete(`${VARIETIES_BASE}/${id}`, getAuthConfig()).catch(() => null);
+      alert("Variety deleted.");
+    } catch (err) {
+      console.error("delete variety", err);
+      alert("Failed to delete variety.");
+      fetchVarieties();
+    }
+  };
+
+  /* COUPONS */
   const fetchCoupons = async () => {
     try {
       setCouponLoading(true);
       const res = await axios.get(COUPONS_BASE, getAuthConfig());
-      // server might return array or { data: [...] } or { coupons: [...] }
       const data = Array.isArray(res.data)
         ? res.data
         : res.data?.data ?? res.data?.coupons ?? [];
@@ -321,12 +1043,7 @@ const [formAppliesTo, setFormAppliesTo] = useState<string>("All Products");
     }
   };
 
-  const handleNotifImageChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0] ?? null;
-    setNotifImageFile(f);
-    setNotifImagePreview(f ? URL.createObjectURL(f) : null);
-  };
-
+  /* NOTIFICATIONS */
   const fetchNotifSettings = async () => {
     try {
       setNotifLoading(true);
@@ -399,6 +1116,13 @@ const [formAppliesTo, setFormAppliesTo] = useState<string>("All Products");
     }
   };
 
+  const handleNotifImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] ?? null;
+    setNotifImageFile(f);
+    setNotifImagePreview(f ? URL.createObjectURL(f) : null);
+  };
+
+  /* TERMS */
   const fetchTerms = async () => {
     try {
       setTermsLoading(true);
@@ -429,7 +1153,11 @@ const [formAppliesTo, setFormAppliesTo] = useState<string>("All Products");
         const updated = res.data?.data ?? {};
         setTermsContent(updated.content ?? termsEditValue);
         setTermsEditOpen(false);
-        alert(`${termsType === "buyer" ? "Terms & Conditions" : "Privacy Policy"} updated successfully.`);
+        alert(
+          `${
+            termsType === "buyer" ? "Terms & Conditions" : "Privacy Policy"
+          } updated successfully.`
+        );
       } else {
         setTermsContent(termsEditValue);
         setTermsEditOpen(false);
@@ -443,6 +1171,7 @@ const [formAppliesTo, setFormAppliesTo] = useState<string>("All Products");
     }
   };
 
+  /* ABOUT */
   const fetchAbout = async () => {
     try {
       setAboutLoading(true);
@@ -485,6 +1214,7 @@ const [formAppliesTo, setFormAppliesTo] = useState<string>("All Products");
     }
   };
 
+  /* SUPPORT */
   const fetchSupport = async () => {
     try {
       setLoadingSupport(true);
@@ -529,343 +1259,29 @@ const [formAppliesTo, setFormAppliesTo] = useState<string>("All Products");
       alert("Failed to clear field.");
     }
   };
-  const handleSupportCancel = () => { setSupportEditField(null); setSupportTempValue(""); };
-
-  useEffect(() => {
-    if (activeTab === "products") {
-      fetchCategories();
-      fetchVarieties();
-    }
-    if (activeTab === "coupons") fetchCoupons();
-    if (activeTab === "notifications") fetchNotifSettings();
-    if (activeTab === "customersupport") fetchSupport();
-    if (activeTab === "terms") fetchTerms();
-    if (activeTab === "about") fetchAbout();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, termsType]);
-
-  /* ---------------- MODAL / UI HANDLERS (CATEGORIES) ---------------- */
-  const addNewBlock = () => setAddBlocks((s) => [...s, emptyBlock()]);
-  const removeBlock = (id: string) => setAddBlocks((s) => s.filter((b) => b.id !== id));
-  const updateBlockName = (id: string, v: string) => setAddBlocks((s) => s.map((b) => (b.id === id ? { ...b, name: v } : b)));
-  const updateBlockFile = (id: string, f: File | null) =>
-    setAddBlocks((s) =>
-      s.map((b) =>
-        b.id === id ? { ...b, file: f, preview: f ? URL.createObjectURL(f) : null } : b
-      )
-    );
-  const openAddModal = () => {
-    setIsEditMode(false);
-    setAddBlocks([emptyBlock()]);
-    setShowCategoryModal(true);
-    setProductInnerActive("categories");
-  };
-  const openEditModal = (cat: Category) => {
-    setIsEditMode(true);
-    setEditId(cat._id ?? cat.name ?? null);
-    setEditName(cat.name);
-    setEditFile(null);
-    setEditPreview(cat.image?.url ?? null);
-    setShowCategoryModal(true);
-    setProductInnerActive("categories");
-  };
-  const closeCategoryModal = () => {
-    setShowCategoryModal(false);
-    setIsEditMode(false);
-    setEditId(null);
-    setEditName("");
-    setEditFile(null);
-    setEditPreview(null);
-    setAddBlocks([emptyBlock()]);
-    fetchCategories();
-  };
-  const handleAddFileChange = (e: ChangeEvent<HTMLInputElement>, id: string) => {
-    const f = e.target.files?.[0] ?? null;
-    updateBlockFile(id, f);
-  };
-  const handleEditFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0] ?? null;
-    setEditFile(f);
-    setEditPreview(f ? URL.createObjectURL(f) : null);
-  };
-
-  const handleSaveAdds = async () => {
-    const nonEmpty = addBlocks.filter((b) => b.name.trim() !== "" || b.file);
-    if (nonEmpty.length === 0) return alert("Please add at least one category (name or image).");
-    for (const b of nonEmpty) {
-      if (!b.name.trim()) return alert("Each category needs a name.");
-    }
-    try {
-      setSaving(true);
-      const conf = getAuthConfig();
-      const created: Category[] = [];
-      for (const b of nonEmpty) {
-        const form = new FormData();
-        form.append("name", b.name.trim());
-        if (b.file) form.append("image", b.file);
-        const res = await axios.post(CATEGORIES_BASE, form, {
-          ...conf,
-          headers: { ...(conf.headers ?? {}), "Content-Type": "multipart/form-data" },
-        }).catch(() => null);
-        const item = res?.data?.data ?? res?.data ?? { _id: String(Math.random()).slice(2), name: b.name.trim(), image: b.file ? { url: b.preview } : null };
-        created.push(normalizeCategoryItem(item));
-      }
-      setCategories((prev) => [...created, ...prev]);
-      alert("Categories added successfully.");
-      setAddBlocks([emptyBlock()]);
-      fetchCategories();
-    } catch (err) {
-      console.error("save adds error", err);
-      alert("Failed to add categories.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSaveEdit = async () => {
-    if (!editId) return;
-    if (!editName.trim()) return alert("Please enter category name.");
-    try {
-      setSaving(true);
-      const form = new FormData();
-      form.append("name", editName.trim());
-      if (editFile) form.append("image", editFile);
-      const conf = getAuthConfig();
-      const res = await axios.put(`${CATEGORIES_BASE}/${editId}`, form, {
-        ...conf,
-        headers: { ...(conf.headers ?? {}), "Content-Type": "multipart/form-data" },
-      }).catch(() => null);
-      if (res?.data?.success && res?.data?.data) {
-        const updated = normalizeCategoryItem(res.data.data);
-        setCategories((prev) => prev.map((p) => (p._id === updated._id ? updated : p)));
-      } else {
-        fetchCategories();
-      }
-      alert("Category updated.");
-      closeCategoryModal();
-    } catch (err) {
-      console.error("save edit error", err);
-      alert("Failed to update category.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDeleteCategory = async (id: string, name: string) => {
-    if (!confirm(`Delete category "${name}"? This cannot be undone.`)) return;
-    try {
-      setCategories((prev) => prev.filter((c) => (c._id ?? c.name) !== id));
-      await axios.delete(`${CATEGORIES_BASE}/${id}`, getAuthConfig()).catch(() => null);
-      alert("Category deleted successfully.");
-      fetchCategories();
-      setVarieties((prev) => prev.filter((v) => v.categoryId !== id));
-    } catch (err) {
-      console.error("delete category", err);
-      alert("Failed to delete category.");
-      fetchCategories();
-    }
-  };
-
-  /* ---------------- VARIETY HANDLERS ---------------- */
-
-  /**
-   * If categoryId is provided, the modal will open pre-selected for that category.
-   * If not provided, modal opens and user can select category from dropdown.
-   */
-  const openAddVarietyModal = (categoryId?: string, categoryName?: string) => {
-    setIsVarEdit(false);
-    setEditingVarId(null);
-    setVarModalName("");
-    setVarModalCategoryId(categoryId ?? null);
-    setVarModalCategoryName(categoryName ?? null);
-    setVarModalPending([]); // clear pending when open for fresh add
-    setShowVarModal(true);
-    setProductInnerActive("varieties");
-  };
-
-  const openEditVarietyModal = (v: Variety) => {
-    setIsVarEdit(true);
-    setEditingVarId(v._id ?? null);
-    setVarModalName(v.name);
-    setVarModalCategoryId(v.categoryId);
-    setVarModalCategoryName(v.categoryName ?? categories.find(c => (c._id ?? c.name) === v.categoryId)?.name ?? "");
-    setVarModalPending([]); // not used in edit
-    setShowVarModal(true);
-    setProductInnerActive("varieties");
-  };
-
-  const closeVarModal = () => {
-    setShowVarModal(false);
-    setVarModalCategoryId(null);
-    setVarModalCategoryName(null);
-    setVarModalName("");
-    setIsVarEdit(false);
-    setEditingVarId(null);
-    setVarModalPending([]);
-    fetchVarieties();
-  };
-
-  // local Add inside modal
-  const handleLocalAddVariety = (e?: React.MouseEvent) => {
-    if (e) e.preventDefault();
-    const trimmedName = varModalName.trim();
-    if (!varModalCategoryId) return alert("Select category.");
-    if (!trimmedName) return alert("Enter variety name first to add.");
-    const duplicateInPending = varModalPending.some(p => p.name.toLowerCase() === trimmedName.toLowerCase() && p.categoryId === varModalCategoryId);
-    const duplicateInExisting = varieties.some(v => v.name.toLowerCase() === trimmedName.toLowerCase() && v.categoryId === varModalCategoryId);
-    if (duplicateInPending || duplicateInExisting) {
-      return alert("This variety already exists (or is pending) for this category.");
-    }
-
-    const created: Variety = {
-      _id: `pending-${String(Math.random()).slice(2,10)}`,
-      name: trimmedName,
-      categoryId: varModalCategoryId,
-      categoryName: varModalCategoryName ?? (categories.find(c => (c._id ?? c.name) === varModalCategoryId)?.name ?? ""),
-    };
-    setVarModalPending(prev => [...prev, created]);
-    setVarModalName("");
-  };
-
-  const handleRemovePending = (id: string) => {
-    setVarModalPending(prev => prev.filter(p => p._id !== id));
-  };
-
-  const handleSaveVariety = async () => {
-    if (!varModalCategoryId) return alert("Select category.");
-    if (isVarEdit && editingVarId) {
-      // editing existing variety
-      if (!varModalName.trim()) return alert("Enter variety name.");
-      try {
-        setVarLoading(true);
-        const categoryNameToSend = varModalCategoryName ?? (categories.find(c => (c._id ?? c.name) === varModalCategoryId)?.name ?? "");
-        const payload = { name: varModalName.trim(), category: categoryNameToSend };
-        const res = await axios.put(`${VARIETIES_BASE}/${editingVarId}`, payload, getAuthConfig()).catch(() => null);
-        const returned = res?.data?.data ?? res?.data ?? null;
-        if (returned) {
-          const categoryObj = returned.category && typeof returned.category === "object" ? returned.category : (categories.find(c => (c._id ?? c.name) === varModalCategoryId) ?? null);
-          const catId = categoryObj ? (categoryObj._id ?? categoryObj.id ?? varModalCategoryId) : varModalCategoryId;
-          const catName = categoryObj ? (categoryObj.name ?? categoryNameToSend) : categoryNameToSend;
-          setVarieties((prev) => prev.map((p) => (p._id ?? p.name) === editingVarId ? { ...p, name: returned.name ?? varModalName, categoryId: String(catId), categoryName: catName } : p));
-        } else {
-          setVarieties((prev) => prev.map((p) => (p._id ?? p.name) === editingVarId ? { ...p, name: varModalName, categoryId: varModalCategoryId ?? p.categoryId, categoryName: varModalCategoryName ?? p.categoryName } : p));
-        }
-        alert("Variety updated.");
-        closeVarModal();
-      } catch (err) {
-        console.error("save variety (edit)", err);
-        alert("Failed to update variety.");
-      } finally {
-        setVarLoading(false);
-      }
-      return;
-    }
-
-    try {
-      setVarLoading(true);
-      const conf = getAuthConfig();
-
-      if (varModalPending.length > 0) {
-        const createdList: Variety[] = [];
-        for (const p of varModalPending) {
-          const payload = { name: p.name, category: p.categoryName ?? (categories.find(c => (c._id ?? c.name) === p.categoryId)?.name ?? "") };
-          const res = await axios.post(VARIETIES_BASE, payload, {
-            ...conf,
-            headers: { ...(conf.headers ?? {}), "Content-Type": "application/json" },
-          }).catch(() => null);
-          const returned = res?.data?.data ?? (res?.data?.variety ?? null) ?? null;
-          if (returned) {
-            const categoryObj = returned.category && typeof returned.category === "object" ? returned.category : null;
-            const catId = categoryObj ? (categoryObj._id ?? categoryObj.id ?? p.categoryId) : (returned.category ?? p.categoryId);
-            const catName = categoryObj ? (categoryObj.name ?? p.categoryName) : p.categoryName ?? (categories.find(c => (c._id ?? c.name) === String(catId))?.name ?? "");
-            createdList.push({
-              _id: returned._id ?? String(Math.random()).slice(2),
-              name: returned.name ?? p.name,
-              categoryId: String(catId ?? p.categoryId),
-              categoryName: catName ?? "",
-            });
-          } else {
-            createdList.push({
-              _id: `local-${String(Math.random()).slice(2,10)}`,
-              name: p.name,
-              categoryId: p.categoryId,
-              categoryName: p.categoryName,
-            });
-          }
-        }
-        setVarieties(prev => [...prev, ...createdList]);
-        alert("Varieties added.");
-        setVarModalPending([]);
-        closeVarModal();
-        return;
-      }
-
-      if (varModalName.trim()) {
-        const payload = { name: varModalName.trim(), category: varModalCategoryName ?? (categories.find(c => (c._id ?? c.name) === varModalCategoryId)?.name ?? "") };
-        const res = await axios.post(VARIETIES_BASE, payload, {
-          ...conf,
-          headers: { ...(conf.headers ?? {}), "Content-Type": "application/json" },
-        }).catch(() => null);
-        const returned = res?.data?.data ?? (res?.data?.variety ?? null) ?? null;
-        if (returned) {
-          const categoryObj = returned.category && typeof returned.category === "object" ? returned.category : null;
-          const catId = categoryObj ? (categoryObj._id ?? categoryObj.id ?? varModalCategoryId) : (returned.category ?? varModalCategoryId);
-          const catName = categoryObj ? (categoryObj.name ?? varModalCategoryName) : (varModalCategoryName ?? categories.find(c => (c._id ?? c.name) === String(catId))?.name ?? "");
-          const created: Variety = {
-            _id: returned._id ?? String(Math.random()).slice(2),
-            name: returned.name ?? varModalName,
-            categoryId: String(catId ?? ""),
-            categoryName: catName ?? "",
-          };
-          setVarieties((prev) => [...prev, created]);
-        } else {
-          const created: Variety = {
-            _id: String(Math.random()).slice(2),
-            name: varModalName,
-            categoryId: varModalCategoryId ?? "",
-            categoryName: varModalCategoryName ?? (categories.find(c => (c._id ?? c.name) === varModalCategoryId)?.name ?? ""),
-          };
-          setVarieties((prev) => [...prev, created]);
-        }
-        alert("Variety added.");
-        setVarModalName("");
-        closeVarModal();
-        return;
-      }
-
-      return alert("Add a variety first (type a name or use the Add button).");
-    } catch (err) {
-      console.error("save variety", err);
-      alert("Failed to save variety.");
-    } finally {
-      setVarLoading(false);
-    }
-  };
-
-  const handleDeleteVariety = async (id: string, name: string) => {
-    if (!confirm(`Delete variety "${name}"?`)) return;
-    try {
-      setVarieties((prev) => prev.filter((v) => (v._id ?? v.name) !== id));
-      await axios.delete(`${VARIETIES_BASE}/${id}`, getAuthConfig()).catch(() => null);
-      alert("Variety deleted.");
-    } catch (err) {
-      console.error("delete variety", err);
-      alert("Failed to delete variety.");
-      fetchVarieties();
-    }
+  const handleSupportCancel = () => {
+    setSupportEditField(null);
+    setSupportTempValue("");
   };
 
   /* COUPONS helpers */
   const normalizeDiscount = (discount: any) => {
     try {
-      if (discount === null || discount === undefined) return { value: 0, type: "Percentage" };
-      if (typeof discount === "number") return { value: discount, type: "Percentage" };
+      if (discount === null || discount === undefined)
+        return { value: 0, type: "Percentage" };
+      if (typeof discount === "number")
+        return { value: discount, type: "Percentage" };
       if (typeof discount === "string") {
         const raw = discount.trim();
         const num = parseFloat(raw.replace(/[^\d.-]/g, ""));
         if (!isNaN(num)) {
           if (raw.includes("%")) return { value: num, type: "Percentage" };
-          if (raw.includes("₹") || raw.toLowerCase().includes("rs") || raw.toLowerCase().includes("inr")) return { value: num, type: "Fixed" };
+          if (
+            raw.includes("₹") ||
+            raw.toLowerCase().includes("rs") ||
+            raw.toLowerCase().includes("inr")
+          )
+            return { value: num, type: "Fixed" };
           return { value: num, type: "Percentage" };
         }
         return { value: 0, type: "Percentage" };
@@ -876,11 +1292,17 @@ const [formAppliesTo, setFormAppliesTo] = useState<string>("All Products");
         type = type.trim();
         const tl = type.toLowerCase();
         if (["%", "percent", "percentage"].includes(tl)) type = "Percentage";
-        else if (["₹", "rs", "inr", "fixed", "amount"].includes(tl)) type = "Fixed";
+        else if (["₹", "rs", "inr", "fixed", "amount"].includes(tl))
+          type = "Fixed";
         else if (tl === "") type = "Percentage";
         else {
           if (tl.includes("%")) type = "Percentage";
-          else if (tl.includes("fixed") || tl.includes("rupee") || tl.includes("₹")) type = "Fixed";
+          else if (
+            tl.includes("fixed") ||
+            tl.includes("rupee") ||
+            tl.includes("₹")
+          )
+            type = "Fixed";
           else type = type[0].toUpperCase() + type.slice(1);
         }
         return { value, type };
@@ -897,22 +1319,46 @@ const [formAppliesTo, setFormAppliesTo] = useState<string>("All Products");
     const discountType = d.type ?? "Percentage";
     const expiryISO = c.expiryDate ?? c.updatedAt ?? c.createdAt ?? "";
     const validityLabel = expiryISO ? new Date(expiryISO).toLocaleDateString() : "-";
-    const appliesTo = Array.isArray(c.appliesTo) ? c.appliesTo.join(", ") : (c.appliesTo as any) ?? "All Products";
-    const createdByLabel = c.createdBy && typeof c.createdBy === "object" ? (c.createdBy.name ?? c.createdBy._id ?? c.createdBy.id ?? String(c.createdBy)) : String(c.createdBy ?? "-");
+    const appliesTo = Array.isArray(c.appliesTo)
+      ? c.appliesTo.join(", ")
+      : (c.appliesTo as any) ?? "All Products";
+    const createdByLabel =
+      c.createdBy && typeof c.createdBy === "object"
+        ? c.createdBy.name ??
+          c.createdBy._id ??
+          c.createdBy.id ??
+          String(c.createdBy)
+        : String(c.createdBy ?? "-");
     let status = (c.status ?? "").toString();
     if (!status) {
       if (!expiryISO) status = "Active";
       else status = new Date(expiryISO) > new Date() ? "Active" : "Expired";
     }
-    // IMPORTANT FIX: use backend id if _id missing
     const id = c._id ?? c.id ?? String(Math.random()).slice(2);
-    return { _id: id, code: c.code, discountValue, discountType, appliesTo, createdByLabel, validityLabel, expiryISO, status };
+    return {
+      _id: id,
+      code: c.code,
+      discountValue,
+      discountType,
+      appliesTo,
+      createdByLabel,
+      validityLabel,
+      expiryISO,
+      status,
+    };
   };
 
   const couponRows = couponsRaw.map(mapToRow);
   const filtered = couponRows.filter((r) => {
-    const matchesFilter = couponFilter === "all" ? true : couponFilter === "active" ? r.status.toLowerCase() === "active" : r.status.toLowerCase() === "expired";
-    const matchesSearch = r.code.toLowerCase().includes(searchTerm.trim().toLowerCase());
+    const matchesFilter =
+      couponFilter === "all"
+        ? true
+        : couponFilter === "active"
+        ? r.status.toLowerCase() === "active"
+        : r.status.toLowerCase() === "expired";
+    const matchesSearch = r.code
+      .toLowerCase()
+      .includes(searchTerm.trim().toLowerCase());
     return matchesFilter && matchesSearch;
   });
   const totalPages = Math.max(1, Math.ceil(filtered.length / couponsPerPage));
@@ -930,10 +1376,10 @@ const [formAppliesTo, setFormAppliesTo] = useState<string>("All Products");
     setFormUsageLimit("");
     setFormStartDate("");
     setFormExpiryDate("");
-    // default to All Products
-setFormAppliesTo("All Products");
+    setFormAppliesTo("All Products");
   };
   const closeAddCoupon = () => setShowAddCoupon(false);
+
   const handleCreateCoupon = async () => {
     if (!formCode.trim()) return alert("Coupon Code required");
     if (!formDiscount && formDiscount !== 0) return alert("Discount required");
@@ -941,11 +1387,7 @@ setFormAppliesTo("All Products");
     try {
       setCreatingCoupon(true);
       const discountPayload = { value: Number(formDiscount), type: formDiscountType };
-      // ensure appliesTo is array, and when All Products is present, send ["All Products"]
-      const appliesToValue =
-        (Array.isArray(formAppliesTo) ? formAppliesTo : [String(formAppliesTo)])?.length
-          ? (Array.isArray(formAppliesTo) && formAppliesTo.includes("All Products") ? ["All Products"] : Array.isArray(formAppliesTo) ? formAppliesTo : [String(formAppliesTo)])
-          : ["All Products"];
+      const appliesToValue = [String(formAppliesTo || "All Products")];
 
       const payload = {
         code: formCode.trim(),
@@ -953,7 +1395,9 @@ setFormAppliesTo("All Products");
         minimumOrder: formMinOrder ? Number(formMinOrder) : 0,
         usageLimitPerUser: formUsageLimit ? Number(formUsageLimit) : 1,
         totalUsageLimit: formTotalUsage ? Number(formTotalUsage) : 50,
-        startDate: formStartDate ? new Date(formStartDate).toISOString() : new Date().toISOString(),
+        startDate: formStartDate
+          ? new Date(formStartDate).toISOString()
+          : new Date().toISOString(),
         expiryDate: new Date(formExpiryDate).toISOString(),
         appliesTo: appliesToValue,
         applicableProducts: [],
@@ -974,24 +1418,27 @@ setFormAppliesTo("All Products");
     }
   };
 
-  // openDeleteModal: we pass the id returned by mapToRow (which ensures c._id ?? c.id)
   const openDeleteModal = (id: string, code: string) => {
     setOpenDeleteId(id);
     setOpenDeleteCode(code);
     setDeleteReason("");
   };
-  const closeDeleteModal = () => { setOpenDeleteId(null); setOpenDeleteCode(null); setDeleteReason(""); };
+  const closeDeleteModal = () => {
+    setOpenDeleteId(null);
+    setOpenDeleteCode(null);
+    setDeleteReason("");
+  };
 
-  // IMPORTANT: delete should use the backend id (map ensures that) and NOT send body unless server expects it.
   const confirmDeleteCoupon = async () => {
     if (!openDeleteId) return;
     try {
-      // call delete with auth headers only
       await axios.delete(`${COUPONS_BASE}/${openDeleteId}`, getAuthConfig());
-      setCouponsRaw((prev) => prev.filter((c) => {
-        const cid = (c._id ?? c.id ?? "");
-        return cid !== openDeleteId;
-      }));
+      setCouponsRaw((prev) =>
+        prev.filter((c) => {
+          const cid = c._id ?? c.id ?? "";
+          return cid !== openDeleteId;
+        })
+      );
       closeDeleteModal();
       alert("Coupon deleted successfully.");
     } catch (err) {
@@ -1009,8 +1456,12 @@ setFormAppliesTo("All Products");
   /* UI helpers for Varieties grouping */
   const groupedVarietiesInternal = categories.map((cat) => {
     const catId = cat._id ?? cat.name;
-    const allItems = varieties.filter((v) => v.categoryId === String(catId)).sort((a, b) => a.name.localeCompare(b.name));
-    const filteredByVarName = allItems.filter((v) => v.name.toLowerCase().includes(varSearch.trim().toLowerCase()));
+    const allItems = varieties
+      .filter((v) => v.categoryId === String(catId))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const filteredByVarName = allItems.filter((v) =>
+      v.name.toLowerCase().includes(varSearch.trim().toLowerCase())
+    );
     return {
       category: cat,
       allItems,
@@ -1021,7 +1472,6 @@ setFormAppliesTo("All Products");
   const categoriesFilteredForDisplay = groupedVarietiesInternal
     .map((g) => {
       const lowerVar = varSearch.trim().toLowerCase();
-      const lowerCat = categorySearch.trim().toLowerCase();
 
       if (productInnerActive === "categories") {
         return { category: g.category, items: g.allItems };
@@ -1047,36 +1497,42 @@ setFormAppliesTo("All Products");
       return (g.items || []).length > 0;
     });
 
-  /* ---------------- MULTI-SELECT DROPDOWN COMPONENT (ADDED) ---------------- */
-  const MultiSelectDropdown: React.FC<{
-    options: string[];
+  /* ---------------- MULTI SELECT PRODUCTS (SPECIAL CATEGORY) ---------------- */
+  const ProductMultiSelect: React.FC<{
+    options: Product[];
     value: string[];
     onChange: (v: string[]) => void;
   }> = ({ options, value, onChange }) => {
     const [open, setOpen] = useState(false);
+    const [q, setQ] = useState("");
 
-    const toggle = (item: string) => {
-      if (item === "All Products") {
-        onChange(["All Products"]);
-        return;
-      }
+    const filtered = options.filter((p) =>
+      getProductName(p).toLowerCase().includes(q.trim().toLowerCase())
+    );
 
-      const updated = value.includes(item)
-        ? value.filter((v) => v !== item)
-        : [...value.filter((v) => v !== "All Products"), item];
-
+    const toggle = (id: string) => {
+      if (!id) return;
+      const updated = value.includes(id)
+        ? value.filter((x) => x !== id)
+        : [...value, id];
       onChange(updated);
     };
 
+    const selectedLabels = value
+      .map((id) => options.find((p) => getProductId(p) === id))
+      .filter(Boolean)
+      .map((p) => getProductName(p as any));
+
     return (
       <div className="relative w-full">
-        {/* Top Box */}
         <div
           className="border rounded-lg p-2.5 bg-white w-full cursor-pointer flex justify-between items-center"
           onClick={() => setOpen(!open)}
         >
-          <span className="text-gray-700 text-sm">
-            {value.length > 0 ? value.join(", ") : "--"}
+          <span className="text-gray-700 text-sm truncate">
+            {selectedLabels.length > 0
+              ? selectedLabels.join(", ")
+              : "-- Select products --"}
           </span>
 
           <svg
@@ -1089,21 +1545,40 @@ setFormAppliesTo("All Products");
           </svg>
         </div>
 
-        {/* Dropdown */}
         {open && (
-          <div className="absolute left-0 top-full mt-1 w-full bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto z-50">
-            {options.map((item) => (
-              <div
-                key={item}
-                onClick={() => toggle(item)}
-                className={`px-3 py-2 text-sm cursor-pointer flex justify-between hover:bg-gray-100 ${value.includes(item) ? "bg-green-50" : ""}`}
-              >
-                <span>{item}</span>
-                {value.includes(item) && (
-                  <span className="text-green-600 font-bold">✔</span>
-                )}
-              </div>
-            ))}
+          <div className="absolute left-0 top-full mt-1 w-full bg-white border rounded-lg shadow-lg max-h-72 overflow-y-auto z-50">
+            <div className="p-2 border-b">
+              <input
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search product..."
+                className="w-full border rounded-md px-3 py-2 text-sm outline-none"
+              />
+            </div>
+
+            {filtered.length === 0 ? (
+              <div className="px-3 py-3 text-sm text-gray-500">No products found.</div>
+            ) : (
+              filtered.map((p) => {
+                const id = getProductId(p);
+                const checked = value.includes(id);
+                return (
+                  <div
+                    key={id}
+                    onClick={() => toggle(id)}
+                    className={`px-3 py-2 text-sm cursor-pointer flex items-center justify-between hover:bg-gray-100 ${
+                      checked ? "bg-green-50" : ""
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <input type="checkbox" checked={checked} readOnly />
+                      <span className="text-gray-700">{getProductName(p)}</span>
+                    </div>
+                    {checked && <span className="text-green-600 font-bold">✔</span>}
+                  </div>
+                );
+              })
+            )}
           </div>
         )}
       </div>
@@ -1120,9 +1595,10 @@ setFormAppliesTo("All Products");
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`text-left px-3 py-2 rounded-md text-sm font-medium transition ${activeTab === tab.id
-                ? "bg-white shadow-sm text-gray-900"
-                : "hover:bg-gray-200 text-gray-600"
+              className={`text-left px-3 py-2 rounded-md text-sm font-medium transition ${
+                activeTab === tab.id
+                  ? "bg-white shadow-sm text-gray-900"
+                  : "hover:bg-gray-200 text-gray-600"
               }`}
             >
               {tab.label}
@@ -1141,8 +1617,16 @@ setFormAppliesTo("All Products");
               {productInnerTabs.map((t) => (
                 <button
                   key={t.id}
-                  onClick={() => setProductInnerActive(t.id as any)}
-                  className={`text-sm font-medium pb-2 ${productInnerActive === t.id ? "text-green-600 border-b-2 border-green-600" : "text-gray-600 hover:text-gray-800"}`}
+                  onClick={() => {
+                    setProductInnerActive(t.id as any);
+                    setSelectedSpecial(null);
+                    setSelectedSpecialProducts([]);
+                  }}
+                  className={`text-sm font-medium pb-2 ${
+                    productInnerActive === t.id
+                      ? "text-green-600 border-b-2 border-green-600"
+                      : "text-gray-600 hover:text-gray-800"
+                  }`}
                 >
                   {t.label}
                 </button>
@@ -1153,17 +1637,53 @@ setFormAppliesTo("All Products");
             <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
               {/* Header */}
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-gray-800 text-base font-medium">{productInnerActive === "categories" ? "Manage Product Categories" : "Manage Product Varieties"}</h2>
+                <h2 className="text-gray-800 text-base font-medium">
+                  {productInnerActive === "categories"
+                    ? "Manage Product Categories"
+                    : productInnerActive === "varieties"
+                    ? "Manage Product Varieties"
+                    : "Manage Special Categories"}
+                </h2>
+
                 <div className="flex items-center gap-3">
                   <div className="flex items-center border rounded-lg px-3 py-2 w-72">
                     <Search className="text-gray-500 w-5 h-5 mr-2" />
-                    {/* choose input based on active tab */}
+
                     {productInnerActive === "categories" ? (
-                      <input type="text" placeholder="Search categories" value={categorySearch} onChange={(e) => setCategorySearch(e.target.value)} className="w-full outline-none text-gray-700" />
+                      <input
+                        type="text"
+                        placeholder="Search categories"
+                        value={categorySearch}
+                        onChange={(e) => setCategorySearch(e.target.value)}
+                        className="w-full outline-none text-gray-700"
+                      />
+                    ) : productInnerActive === "varieties" ? (
+                      <input
+                        type="text"
+                        placeholder="Search categories / varieties"
+                        value={varSearch}
+                        onChange={(e) => setVarSearch(e.target.value)}
+                        className="w-full outline-none text-gray-700"
+                      />
                     ) : (
-                      <input type="text" placeholder="Search categories / varieties" value={varSearch} onChange={(e) => setVarSearch(e.target.value)} className="w-full outline-none text-gray-700" />
+                      <input
+                        type="text"
+                        placeholder="Search special categories"
+                        value={specialSearch}
+                        onChange={(e) => setSpecialSearch(e.target.value)}
+                        className="w-full outline-none text-gray-700"
+                      />
                     )}
                   </div>
+
+                  {productInnerActive === "special" && (
+                    <button
+                      onClick={openAddSpecialModal}
+                      className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 text-sm flex items-center gap-2"
+                    >
+                      <Plus size={14} /> Add Special Category
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -1288,6 +1808,166 @@ setFormAppliesTo("All Products");
                       )}
                     </>
                   )} 
+                </div>
+              )}
+
+              {/* SPECIAL CATEGORIES VIEW */}
+              {productInnerActive === "special" && (
+                <div>
+                  {/* if clicked special category -> show products */}
+                  {selectedSpecial ? (
+                    <div className="space-y-4">
+                      <button
+                        onClick={() => {
+                          setSelectedSpecial(null);
+                          setSelectedSpecialProducts([]);
+                        }}
+                        className="flex items-center gap-2 text-gray-700 hover:text-gray-900 text-sm"
+                      >
+                        <ChevronLeft size={18} /> Back to Special Categories
+                      </button>
+
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={
+                            getSpecialImageUrl(selectedSpecial) ||
+                            "https://via.placeholder.com/60"
+                          }
+                          alt="special"
+                          className="w-14 h-14 rounded-xl object-cover border"
+                        />
+                        <div>
+                          <div className="text-lg font-semibold text-gray-900">
+                            {selectedSpecial.name}
+                          </div>
+                          <div className="text-sm text-gray-500">
+                            Products: {selectedSpecialProducts.length}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {selectedSpecialProductsLoading ? (
+                          <div className="text-sm text-gray-500">Loading products...</div>
+                        ) : selectedSpecialProducts.length === 0 ? (
+                          <div className="text-sm text-gray-500">
+                            No products found in this special category.
+                          </div>
+                        ) : (
+                          selectedSpecialProducts.map((p) => (
+                            <div
+                              key={getProductId(p)}
+                              className="border rounded-xl p-3 bg-white flex items-center gap-3"
+                            >
+                              <img
+                                src={
+                                  getProductImage(p) || "https://via.placeholder.com/60"
+                                }
+                                alt={getProductName(p)}
+                                className="w-12 h-12 rounded-lg object-cover border"
+                              />
+                              <div className="text-sm font-medium text-gray-800">
+                                {getProductName(p)}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {specialLoading ? (
+                        <div className="text-sm text-gray-500">
+                          Loading special categories...
+                        </div>
+                      ) : specialCategories
+                          .filter((s) =>
+                            s.name.toLowerCase().includes(specialSearch.trim().toLowerCase())
+                          )
+                          .length === 0 ? (
+                        <div className="text-sm text-gray-500">
+                          No special categories yet.
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {specialCategories
+                            .filter((s) =>
+                              s.name.toLowerCase().includes(specialSearch.trim().toLowerCase())
+                            )
+                            .map((sc) => {
+                              const sid = sc._id ?? sc.id ?? "";
+                              const count = specialProductsCountMap[sid] ?? 0;
+
+                              return (
+                                <div
+                                  key={sid}
+                                  className="border border-gray-200 rounded-2xl bg-white shadow-sm p-4 relative cursor-pointer hover:shadow-md transition"
+                                  onClick={() => handleOpenSpecialProducts(sc)}
+                                >
+                                  {/* top actions */}
+                                  <div className="absolute top-3 right-3 flex gap-2">
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openEditSpecialModal(sc);
+                                      }}
+                                      className="w-9 h-9 rounded-md border border-sky-100 bg-white hover:bg-sky-50 flex items-center justify-center"
+                                      title="Edit"
+                                    >
+                                      <Edit size={16} className="text-sky-500" />
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteSpecialCategory(
+                                          sc._id ?? sc.id ?? "",
+                                          sc.name
+                                        );
+                                      }}
+                                      className="w-9 h-9 rounded-md border border-red-200 bg-white hover:bg-red-50 flex items-center justify-center"
+                                      title="Delete"
+                                    >
+                                      <Trash2 size={16} className="text-red-600" />
+                                    </button>
+                                  </div>
+
+                                  <img
+                                    src={
+                                      getSpecialImageUrl(sc) ||
+                                      "https://via.placeholder.com/400x200"
+                                    }
+                                    alt={sc.name}
+                                    className="w-full h-36 rounded-xl object-cover border"
+                                  />
+                                  <div className="mt-3">
+                                    <div className="text-sm font-semibold text-gray-900">
+                                      {sc.name}
+                                    </div>
+
+                                    {/* ✅ REAL COUNT SHOW */}
+                                    <div className="text-xs text-gray-500 mt-1">
+                                      Products selected: {count}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      )}
+
+                      <div className="mt-5">
+                        <button
+                          onClick={openAddSpecialModal}
+                          className="flex items-center gap-2 text-sky-600 hover:text-sky-700 text-[15px] font-medium"
+                        >
+                          <span className="flex items-center justify-center w-6 h-6 rounded-full border border-sky-500">
+                            <Plus size={12} />
+                          </span>
+                          Add Special Category
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -1847,6 +2527,96 @@ setFormAppliesTo("All Products");
     </div>
   </div>
 )}
+      {/* SPECIAL CATEGORY MODAL */}
+      {showSpecialModal && (
+        <div className="fixed inset-0 bg-black/40 flex justify-center items-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-[720px] p-6 relative">
+            <div className="flex justify-between items-center border-b pb-3 mb-5">
+              <h3 className="text-gray-800 font-medium text-[18px]">
+                {isSpecialEdit ? "Edit Special Category" : "Add Special Category"}
+              </h3>
+              <button
+                onClick={closeSpecialModal}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-gray-700 text-[15px] mb-2">Name *</label>
+              <input
+                value={specialName}
+                onChange={(e) => setSpecialName(e.target.value)}
+                placeholder="--"
+                className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-gray-700 text-[15px] mb-2">
+                Select Products *
+              </label>
+
+              {productsLoading ? (
+                <div className="text-sm text-gray-500">Loading products...</div>
+              ) : (
+                <ProductMultiSelect
+                  options={allProducts}
+                  value={specialSelectedProducts}
+                  onChange={setSpecialSelectedProducts}
+                />
+              )}
+            </div>
+
+            {/* ✅ only show image upload when creating new */}
+            {!isSpecialEdit && (
+              <div className="mb-5">
+                <label className="block text-gray-700 text-[15px] mb-2">Image *</label>
+                <div
+                  className="border border-gray-300 rounded-lg h-40 flex flex-col justify-center items-center text-center cursor-pointer"
+                  onClick={() => document.getElementById("specialImageInput")?.click()}
+                >
+                  {specialImagePreview ? (
+                    <img
+                      src={specialImagePreview}
+                      alt="preview"
+                      className="h-28 object-cover rounded-md"
+                    />
+                  ) : (
+                    <>
+                      <div className="text-gray-400 mb-2">
+                        <PlusCircle size={32} />
+                      </div>
+                      <p className="text-sm text-gray-500">
+                        Upload special category image
+                      </p>
+                    </>
+                  )}
+                </div>
+                <input
+                  id="specialImageInput"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleSpecialImageChange}
+                />
+              </div>
+            )}
+
+            <div className="flex justify-center">
+              <button
+                onClick={handleSaveSpecialCategory}
+                disabled={specialSaving}
+                className="bg-green-600 text-white px-12 py-3 rounded-xl hover:bg-green-700 text-sm font-medium w-full max-w-sm"
+              >
+                {specialSaving ? "Saving..." : "Save"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ADD COUPON MODAL */}
       {showAddCoupon && (
         <div className="fixed inset-0 bg-black/40 flex justify-center items-start pt-20 z-50">
