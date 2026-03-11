@@ -24,7 +24,9 @@ export default function LoginPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
-  const [loading, setLoading] = useState(false);
+  // Separate loading states for login and forgot-password actions
+  const [loginLoading, setLoginLoading] = useState(false);
+  const [forgotLoading, setForgotLoading] = useState(false);
 
   /* ================= BACK HANDLER ================= */
   const handleBack = () => {
@@ -41,6 +43,7 @@ export default function LoginPage() {
   /* ================= LOGIN ================= */
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoginLoading(true);
     try {
       const res = await axios.post(
         `${BASE_URL}/api/auth/admin-login`,
@@ -57,13 +60,15 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       alert(err?.response?.data?.message || "Login failed");
+    } finally {
+      setLoginLoading(false);
     }
   };
 
   /* ================= STEP 1: REQUEST OTP ================= */
   const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setForgotLoading(true);
 
     try {
       const res = await axios.post(
@@ -81,14 +86,14 @@ export default function LoginPage() {
     } catch (err: any) {
       alert(err?.response?.data?.message || "Error sending OTP");
     } finally {
-      setLoading(false);
+      setForgotLoading(false);
     }
   };
 
   /* ================= STEP 2: VERIFY OTP ================= */
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    setForgotLoading(true);
 
     try {
       const res = await axios.post(
@@ -106,7 +111,7 @@ export default function LoginPage() {
     } catch (err: any) {
       alert(err?.response?.data?.message || "OTP verification failed");
     } finally {
-      setLoading(false);
+      setForgotLoading(false);
     }
   };
 
@@ -119,7 +124,7 @@ export default function LoginPage() {
       return;
     }
 
-    setLoading(true);
+    setForgotLoading(true);
 
     try {
       const res = await axios.post(
@@ -137,7 +142,7 @@ export default function LoginPage() {
     } catch (err: any) {
       alert(err?.response?.data?.message || "Error setting password");
     } finally {
-      setLoading(false);
+      setForgotLoading(false);
     }
   };
 
@@ -212,8 +217,14 @@ export default function LoginPage() {
                   </button>
                 </div>
 
-                <button className="w-full bg-green-600 text-white py-3 rounded-full">
-                  Login
+                <button
+                  type="submit"
+                  disabled={loginLoading}
+                  className={`w-full bg-green-600 text-white py-3 rounded-full ${
+                    loginLoading ? "opacity-50 cursor-not-allowed" : ""
+                  }`}
+                >
+                  {loginLoading ? "Logging in..." : "Login"}
                 </button>
               </form>
             </>
@@ -242,8 +253,14 @@ export default function LoginPage() {
                     className="w-full border rounded-full px-4 py-3"
                   />
 
-                  <button className="w-full bg-green-600 text-white py-3 rounded-full">
-                    {loading ? "Sending..." : "Send OTP"}
+                  <button
+                    type="submit"
+                    disabled={forgotLoading}
+                    className={`w-full bg-green-600 text-white py-3 rounded-full ${
+                      forgotLoading ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
+                  >
+                    {forgotLoading ? "Sending..." : "Send OTP"}
                   </button>
                 </form>
               )}
@@ -271,8 +288,14 @@ export default function LoginPage() {
                     className="w-full border rounded-full px-4 py-3"
                   />
 
-                  <button className="w-full bg-green-600 text-white py-3 rounded-full">
-                    {loading ? "Verifying..." : "Verify OTP"}
+                  <button
+                    type="submit"
+                    disabled={forgotLoading}
+                    className={`w-full bg-green-600 text-white py-3 rounded-full ${
+                      forgotLoading ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
+                  >
+                    {forgotLoading ? "Verifying..." : "Verify OTP"}
                   </button>
                 </form>
               )}
@@ -309,8 +332,14 @@ export default function LoginPage() {
                     className="w-full border rounded-full px-4 py-3"
                   />
 
-                  <button className="w-full bg-green-600 text-white py-3 rounded-full">
-                    {loading ? "Saving..." : "Reset Password"}
+                  <button
+                    type="submit"
+                    disabled={forgotLoading}
+                    className={`w-full bg-green-600 text-white py-3 rounded-full ${
+                      forgotLoading ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
+                  >
+                    {forgotLoading ? "Saving..." : "Reset Password"}
                   </button>
                 </form>
               )}

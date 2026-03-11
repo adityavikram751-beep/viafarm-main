@@ -5,9 +5,9 @@ const COOKIE_KEY = "viafarm_admin_token";
 /* SAVE TOKEN */
 export function setToken(token: string) {
   Cookies.set(COOKIE_KEY, token, {
-    expires: 7,          // token 7 days tak rahega
-    secure: true,        // https required (vercel)
-    sameSite: "strict",  // csrf safe
+    expires: 7,         
+    secure: true,       
+    sameSite: "strict",  
   });
 }
 
