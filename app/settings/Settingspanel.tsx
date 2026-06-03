@@ -6,7 +6,7 @@ import { Upload, Trash2, Eye, EyeOff } from "lucide-react";
 import socket from "../lib/socket";
 
 export default function SettingsPage() {
-  const BASE_URL = "https://vi-farm.onrender.com";
+  const BASE_URL = "https://vi-farm-backend.onrender.com";
 
   const [activeTab, setActiveTab] = useState("general");
   const [loading, setLoading] = useState(false);

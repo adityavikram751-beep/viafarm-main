@@ -5,7 +5,7 @@ import { Eye, EyeOff } from "lucide-react";
 import axios from "axios";
 import { useRouter } from "next/navigation";
 
-const BASE_URL = "https://vi-farm.onrender.com";
+const BASE_URL = "https://vi-farm-backend.onrender.com";
 
 export default function LoginPage() {
   const router = useRouter();

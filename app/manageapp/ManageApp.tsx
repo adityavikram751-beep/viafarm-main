@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 
 /* ---------------- CONFIG ---------------- */
-const BASE_API = "https://vi-farm.onrender.com";
+const BASE_API = "https://vi-farm-backend.onrender.com";
 const CATEGORIES_BASE = `${BASE_API}/api/admin/manage-app/categories`;
 const COUPONS_BASE = `${BASE_API}/api/admin/manage-app/coupons`;
 const SUPPORT_BASE = `${BASE_API}/api/admin/manage-app/customer-support`;

@@ -23,7 +23,7 @@ import {
  */
 
 /* ---------------- CONFIG ---------------- */
-const BASE_URL = "https://vi-farm.onrender.com";
+const BASE_URL = "https://vi-farm-backend.onrender.com";
 const API_LIST_URL = `${BASE_URL}/api/admin/products`;
 const ITEMS_PER_PAGE = 12;
 

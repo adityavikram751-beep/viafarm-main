@@ -62,7 +62,7 @@ interface BuyerDetail {
   }[];
 }
 
-const BASE_URL = "https://vi-farm.onrender.com";
+const BASE_URL = "https://vi-farm-backend.onrender.com";
 
 export default function BuyersPanel() {
   const [buyers, setBuyers] = useState<Buyer[]>([]);

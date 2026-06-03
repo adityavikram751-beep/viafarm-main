@@ -1,7 +1,7 @@
 {
   "version": 2,
   "env": {
-    "NEXT_PUBLIC_API_URL": "https://vi-farm.onrender.com"
+    "NEXT_PUBLIC_API_URL": "https://vi-farm-backend.onrender.com"
   },
   "regions": ["bom1"]
 }

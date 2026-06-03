@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 
 // ---------------- API CONFIG ----------------
-const BASE_URL = "https://vi-farm.onrender.com/api/admin/dashboard";
+const BASE_URL = "https://vi-farm-backend.onrender.com/api/admin/dashboard";
 
 // ---------------- INTERFACES ----------------
 interface DashboardCardData {

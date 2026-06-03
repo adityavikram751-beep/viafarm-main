@@ -117,7 +117,7 @@ export default function Vendors() {
         setLoading(true);
         const token = localStorage.getItem("token");
         const res = await axios.get(
-          "https://vi-farm.onrender.com/api/admin/vendors",
+          "https://vi-farm-backend.onrender.com/api/admin/vendors",
           { headers: { Authorization: `Bearer ${token}` } }
         );
         setVendors(res.data.data || []);
@@ -166,7 +166,7 @@ export default function Vendors() {
       const token = localStorage.getItem("token");
 
       const res = await axios.get(
-        `https://vi-farm.onrender.com/api/admin/vendor/${vendor._id}`,
+        `https://vi-farm-backend.onrender.com/api/admin/vendor/${vendor._id}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -190,7 +190,7 @@ export default function Vendors() {
       const newStatus = vendor.status === "Blocked" ? "Active" : "Blocked";
 
       const res = await axios.put(
-        `https://vi-farm.onrender.com/api/admin/vendors/${vendor._id}/status`,
+        `https://vi-farm-backend.onrender.com/api/admin/vendors/${vendor._id}/status`,
         { status: newStatus },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -213,7 +213,7 @@ export default function Vendors() {
 
     try {
       const token = localStorage.getItem("token");
-      const base = "https://vi-farm.onrender.com/api/admin/vendors";
+      const base = "https://vi-farm-backend.onrender.com/api/admin/vendors";
 
       // working implementation:
       const res = await axios.put(
@@ -257,7 +257,7 @@ export default function Vendors() {
 
     try {
       const token = localStorage.getItem("token");
-      const base = "https://vi-farm.onrender.com/api/admin/vendors";
+      const base = "https://vi-farm-backend.onrender.com/api/admin/vendors";
 
       const res = await axios.put(
         `${base}/${selectedVendor._id}/reject`,
@@ -298,7 +298,7 @@ export default function Vendors() {
     try {
       const token = localStorage.getItem("token");
       const res = await axios.delete(
-        `https://vi-farm.onrender.com/api/admin/vendors/${vendor._id}`,
+        `https://vi-farm-backend.onrender.com/api/admin/vendors/${vendor._id}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 

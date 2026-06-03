@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { Trash2, Loader2, Plus, Link as LinkIcon } from "lucide-react";
 
-const BASE_API = "https://vi-farm.onrender.com";
+const BASE_API = "https://vi-farm-backend.onrender.com";
 const POST_BANNERS_URL = `${BASE_API}/api/admin/manage-app/banners`;
 const DELETE_BANNERS_BASE_URL = `${BASE_API}/api/admin/manage-app/banners`;
 

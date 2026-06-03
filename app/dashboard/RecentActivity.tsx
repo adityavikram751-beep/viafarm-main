@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 import { formatDistanceToNow, parseISO } from "date-fns";
 
-const BASE_URL = "https://vi-farm.onrender.com/api/admin/recent-activity";
+const BASE_URL = "https://vi-farm-backend.onrender.com/api/admin/recent-activity";
 
 interface ActivityItem {
   _id: string;
