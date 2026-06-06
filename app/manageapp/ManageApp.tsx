@@ -1743,7 +1743,18 @@ const rawProducts = res.data?.data ?? res.data?.products ?? [];
                   ) : (
                     <>
                       {categoriesFilteredForDisplay.length === 0 ? (
-                        <div className="text-sm text-gray-500">No categories or varieties found.</div>
+                        <div className="space-y-4">
+                          <div className="text-sm text-gray-500">No categories or varieties found.</div>
+                          <div>
+                            <button
+                              onClick={() => openAddVarietyModal()}
+                              className="flex items-center gap-2 text-sky-600 hover:text-sky-700 text-[15px] font-medium"
+                            >
+                              <span className="flex items-center justify-center w-6 h-6 rounded-full border border-sky-500"><Plus size={12} /></span>
+                              Add Variety
+                            </button>
+                          </div>
+                        </div>
                       ) : (
                         <>
                           {categoriesFilteredForDisplay.map(({ category, items }) => (
