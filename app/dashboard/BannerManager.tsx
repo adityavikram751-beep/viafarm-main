@@ -127,7 +127,10 @@ const BannerCard = ({ banner, handleDelete, isDeleting, isVerticalStyle }: any) 
         </button>
       </div>
 
-    
+      <div className="mt-2 text-sm text-gray-700">
+        <p className="font-semibold truncate">{banner.title || "Untitled Banner"}</p>
+        <p className="text-[11px] text-gray-500 truncate">{banner.placement || "Unknown placement"}</p>
+      </div>
     </div>
   );
 };
