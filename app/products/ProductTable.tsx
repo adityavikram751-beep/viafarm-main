@@ -47,6 +47,30 @@ type ProductRow = {
 
 /* ---------------- HELPERS ---------------- */
 const safeString = (v: any) => (v === null || v === undefined ? "" : String(v));
+const formatVendorLocation = (address: any) => {
+  if (!address) return "Location not available.";
+  if (typeof address === "string") return address.trim() || "Location not available.";
+
+  const parts: string[] = [];
+  const add = (value: any) => {
+    if (value === undefined || value === null) return;
+    const text = String(value).trim();
+    if (text) parts.push(text);
+  };
+
+  add(address.houseNumber);
+  add(address.locality);
+  add(address.city);
+  add(address.district);
+  add(address.pinCode);
+
+  if (parts.length) return parts.join(", ");
+
+  if (address.location) return formatVendorLocation(address.location);
+
+  return "Location not available.";
+};
+
 const mapProductData = (item: any): ProductRow => ({
   id: item._id,
   name: safeString(item.name),
@@ -221,8 +245,9 @@ export default function ProductTable() {
               : null,
           vendor: {
             name: p.vendor?.name || "Unknown Vendor",
-            profilePicture: p.vendor?.profilePicture || "/vendor.jpg",
-            address: p.vendor?.address || null,
+            profilePicture:
+              p.vendor?.profilePicture || p.images?.[0] || "/vendor.jpg",
+            address: p.vendor?.address || p.address || null,
           },
         };
 
@@ -537,13 +562,7 @@ function ViewProductModal({
                   </p>
                   <p className="text-sm font-semibold text-gray-600">
                     {product?.vendor?.address
-                      ? `Location - ${[
-                          product.vendor.address.houseNumber,
-                          product.vendor.address.locality,
-                          product.vendor.address.city,
-                        ]
-                          .filter(Boolean)
-                          .join(", ")}`
+                      ? `Location - ${formatVendorLocation(product.vendor.address)}`
                       : "Location not available."}
                   </p>
                 </div>
