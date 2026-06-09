@@ -4,7 +4,7 @@
 
 import React, { ChangeEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { capitalizeFirstWord } from "@/lib/utils";
+import { capitalizeFirstWord, hasDigits } from "@/lib/utils";
 import {
   Edit,
   Trash2,
@@ -586,7 +586,9 @@ const rawProducts = res.data?.data ?? res.data?.products ?? [];
   };
 
   const handleSaveSpecialCategory = async () => {
-    if (!specialName.trim()) return alert("Special category name required.");
+    const cleanSpecialName = specialName.trim();
+    if (!cleanSpecialName) return alert("Special category name required.");
+    if (hasDigits(cleanSpecialName)) return alert("Special category name cannot contain numbers.");
     if (specialSelectedProducts.length === 0)
       return alert("Select at least 1 product.");
 
@@ -761,7 +763,9 @@ const rawProducts = res.data?.data ?? res.data?.products ?? [];
     if (nonEmpty.length === 0)
       return alert("Please add at least one category (name or image).");
     for (const b of nonEmpty) {
-      if (!b.name.trim()) return alert("Each category needs a name.");
+      const cleanName = b.name.trim();
+      if (!cleanName) return alert("Each category needs a name.");
+      if (hasDigits(cleanName)) return alert("Category name cannot contain numbers.");
     }
     try {
       setSaving(true);
@@ -803,11 +807,13 @@ const rawProducts = res.data?.data ?? res.data?.products ?? [];
 
   const handleSaveEdit = async () => {
     if (!editId) return;
-    if (!editName.trim()) return alert("Please enter category name.");
+    const cleanName = editName.trim();
+    if (!cleanName) return alert("Please enter category name.");
+    if (hasDigits(cleanName)) return alert("Category name cannot contain numbers.");
     try {
       setSaving(true);
       const form = new FormData();
-      form.append("name", capitalizeFirstWord(editName.trim()));
+      form.append("name", capitalizeFirstWord(cleanName));
       if (editFile) form.append("image", editFile);
       const conf = getAuthConfig();
       const res = await axios
@@ -894,9 +900,10 @@ const rawProducts = res.data?.data ?? res.data?.products ?? [];
   const handleLocalAddVariety = (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
     const trimmedName = varModalName.trim();
+    if (!trimmedName) return alert("Enter variety name first to add.");
+    if (hasDigits(trimmedName)) return alert("Variety name cannot contain numbers.");
     const normalizedVarietyName = capitalizeFirstWord(trimmedName);
     if (!varModalCategoryId) return alert("Select category.");
-    if (!trimmedName) return alert("Enter variety name first to add.");
     const duplicateInPending = varModalPending.some(
       (p) =>
         p.name.toLowerCase() === normalizedVarietyName.toLowerCase() &&
@@ -931,7 +938,9 @@ const rawProducts = res.data?.data ?? res.data?.products ?? [];
   const handleSaveVariety = async () => {
     if (!varModalCategoryId) return alert("Select category.");
     if (isVarEdit && editingVarId) {
-      if (!varModalName.trim()) return alert("Enter variety name.");
+      const cleanName = varModalName.trim();
+      if (!cleanName) return alert("Enter variety name.");
+      if (hasDigits(cleanName)) return alert("Variety name cannot contain numbers.");
       try {
         setVarLoading(true);
         const categoryNameToSend =
@@ -987,8 +996,10 @@ const rawProducts = res.data?.data ?? res.data?.products ?? [];
       }
 
       if (varModalName.trim()) {
+        const cleanName = varModalName.trim();
+        if (hasDigits(cleanName)) return alert("Variety name cannot contain numbers.");
         const payload = {
-          name: capitalizeFirstWord(varModalName.trim()),
+          name: capitalizeFirstWord(cleanName),
           category:
             varModalCategoryName ??
             categories.find((c) => (c._id ?? c.name) === varModalCategoryId)?.name ??

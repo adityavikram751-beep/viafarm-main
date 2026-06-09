@@ -10,3 +10,7 @@ export function capitalizeFirstWord(value: string) {
   if (!trimmed) return ""
   return trimmed[0].toUpperCase() + trimmed.slice(1)
 }
+
+export function hasDigits(value: string) {
+  return /\d/.test(value)
+}
