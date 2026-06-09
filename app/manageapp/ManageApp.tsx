@@ -4,6 +4,7 @@
 
 import React, { ChangeEvent, useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { capitalizeFirstWord } from "@/lib/utils";
 import {
   Edit,
   Trash2,
@@ -596,7 +597,7 @@ const rawProducts = res.data?.data ?? res.data?.products ?? [];
       // ✅ EDIT => JSON body (as you said)
       if (isSpecialEdit && specialEditId) {
         const payload = {
-          name: specialName.trim(),
+          name: capitalizeFirstWord(specialName.trim()),
           products: specialSelectedProducts,
         };
 
@@ -613,7 +614,7 @@ const rawProducts = res.data?.data ?? res.data?.products ?? [];
 
       // ✅ CREATE => FormData (image upload required)
       const form = new FormData();
-      form.append("name", specialName.trim());
+      form.append("name", capitalizeFirstWord(specialName.trim()));
 
       if (specialImageFile) {
         form.append("image", specialImageFile);
@@ -768,7 +769,7 @@ const rawProducts = res.data?.data ?? res.data?.products ?? [];
       const created: Category[] = [];
       for (const b of nonEmpty) {
         const form = new FormData();
-        form.append("name", b.name.trim());
+        form.append("name", capitalizeFirstWord(b.name.trim()));
         if (b.file) form.append("image", b.file);
         const res = await axios
           .post(CATEGORIES_BASE, form, {
@@ -783,7 +784,7 @@ const rawProducts = res.data?.data ?? res.data?.products ?? [];
           res?.data?.data ??
           res?.data ?? {
             _id: String(Math.random()).slice(2),
-            name: b.name.trim(),
+            name: capitalizeFirstWord(b.name.trim()),
             image: b.file ? { url: b.preview } : null,
           };
         created.push(normalizeCategoryItem(item));
@@ -806,7 +807,7 @@ const rawProducts = res.data?.data ?? res.data?.products ?? [];
     try {
       setSaving(true);
       const form = new FormData();
-      form.append("name", editName.trim());
+      form.append("name", capitalizeFirstWord(editName.trim()));
       if (editFile) form.append("image", editFile);
       const conf = getAuthConfig();
       const res = await axios
@@ -893,16 +894,17 @@ const rawProducts = res.data?.data ?? res.data?.products ?? [];
   const handleLocalAddVariety = (e?: React.MouseEvent) => {
     if (e) e.preventDefault();
     const trimmedName = varModalName.trim();
+    const normalizedVarietyName = capitalizeFirstWord(trimmedName);
     if (!varModalCategoryId) return alert("Select category.");
     if (!trimmedName) return alert("Enter variety name first to add.");
     const duplicateInPending = varModalPending.some(
       (p) =>
-        p.name.toLowerCase() === trimmedName.toLowerCase() &&
+        p.name.toLowerCase() === normalizedVarietyName.toLowerCase() &&
         p.categoryId === varModalCategoryId
     );
     const duplicateInExisting = varieties.some(
       (v) =>
-        v.name.toLowerCase() === trimmedName.toLowerCase() &&
+        v.name.toLowerCase() === normalizedVarietyName.toLowerCase() &&
         v.categoryId === varModalCategoryId
     );
     if (duplicateInPending || duplicateInExisting) {
@@ -911,7 +913,7 @@ const rawProducts = res.data?.data ?? res.data?.products ?? [];
 
     const created: Variety = {
       _id: `pending-${String(Math.random()).slice(2, 10)}`,
-      name: trimmedName,
+      name: normalizedVarietyName,
       categoryId: varModalCategoryId,
       categoryName:
         varModalCategoryName ??
@@ -936,7 +938,10 @@ const rawProducts = res.data?.data ?? res.data?.products ?? [];
           varModalCategoryName ??
           categories.find((c) => (c._id ?? c.name) === varModalCategoryId)?.name ??
           "";
-        const payload = { name: varModalName.trim(), category: categoryNameToSend };
+        const payload = {
+          name: capitalizeFirstWord(varModalName.trim()),
+          category: categoryNameToSend,
+        };
         await axios
           .put(`${VARIETIES_BASE}/${editingVarId}`, payload, getAuthConfig())
           .catch(() => null);
@@ -983,7 +988,7 @@ const rawProducts = res.data?.data ?? res.data?.products ?? [];
 
       if (varModalName.trim()) {
         const payload = {
-          name: varModalName.trim(),
+          name: capitalizeFirstWord(varModalName.trim()),
           category:
             varModalCategoryName ??
             categories.find((c) => (c._id ?? c.name) === varModalCategoryId)?.name ??
@@ -1096,8 +1101,8 @@ const rawProducts = res.data?.data ?? res.data?.products ?? [];
     try {
       setSendingNotif(true);
       const form = new FormData();
-      form.append("title", notifTitle.trim());
-      form.append("message", notifMessage.trim());
+      form.append("title", capitalizeFirstWord(notifTitle.trim()));
+      form.append("message", capitalizeFirstWord(notifMessage.trim()));
       if (notifImageFile) form.append("image", notifImageFile);
       const conf = getAuthConfig();
       await axios.post(NOTIF_POST, form, {

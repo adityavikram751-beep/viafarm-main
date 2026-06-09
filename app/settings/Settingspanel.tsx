@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { Upload, Trash2, Eye, EyeOff } from "lucide-react";
+import { capitalizeFirstWord } from "@/lib/utils";
 import socket from "../lib/socket";
 
 export default function SettingsPage() {
@@ -173,7 +174,7 @@ export default function SettingsPage() {
 
       if (uploadFile) {
         const formDataToSend = new FormData();
-        formDataToSend.append("name", formData.name);
+        formDataToSend.append("name", capitalizeFirstWord(formData.name.trim()));
         formDataToSend.append("email", formData.email);
         formDataToSend.append("upiId", formData.upiId);
         formDataToSend.append("profilePicture", uploadFile);
@@ -191,7 +192,7 @@ export default function SettingsPage() {
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            name: formData.name,
+            name: capitalizeFirstWord(formData.name.trim()),
             email: formData.email,
             upiId: formData.upiId,
             profilePicture: profilePic,
