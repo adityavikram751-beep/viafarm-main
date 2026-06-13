@@ -156,9 +156,9 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex flex-col md:flex-row h-screen w-full">
+    <div className="flex flex-col md:flex-row min-h-[calc(100vh-2rem)] md:min-h-[calc(100vh-3rem)] w-full overflow-hidden">
       {/* LEFT IMAGE */}
-      <div className="md:w-1/2 w-full h-1/3 md:h-full">
+      <div className="md:w-1/2 w-full h-1/3 md:h-[calc(100vh-3rem)]">
         <img
           src="/images/farmers.png"
           alt="Farmers"
@@ -167,8 +167,8 @@ export default function LoginPage() {
       </div>
 
       {/* RIGHT SIDE */}
-      <div className="md:w-1/2 w-full flex items-center justify-center bg-white px-6">
-        <div className="w-full max-w-md flex flex-col justify-center">
+      <div className="md:w-1/2 w-full flex items-center justify-center bg-white px-6 h-[calc(100vh-3rem)] overflow-hidden">
+        <div className="w-full max-w-md flex flex-col justify-center h-full">
           <div className="flex justify-center mb-6">
             <img src="/images/logo.png" alt="Logo" className="h-60" />
           </div>

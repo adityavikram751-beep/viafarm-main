@@ -300,6 +300,34 @@ export default function ManageApp() {
     return { headers: { Authorization: `Bearer ${token}` } };
   };
 
+  const parseJwtPayload = (token: string): any | null => {
+    try {
+      const parts = token.split(".");
+      if (parts.length !== 3) return null;
+      const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+      const json = decodeURIComponent(
+        atob(base64)
+          .split("")
+          .map((ch) => `%${("00" + ch.charCodeAt(0).toString(16)).slice(-2)}`)
+          .join("")
+      );
+      return JSON.parse(json);
+    } catch {
+      return null;
+    }
+  };
+
+  const getCurrentUserId = (): string | null => {
+    if (typeof window === "undefined") return null;
+    const rawToken = extractToken(localStorage.getItem("token")) || extractToken(sessionStorage.getItem("token")) || "";
+    if (!rawToken) return null;
+    const payload = parseJwtPayload(rawToken);
+    if (!payload || typeof payload !== "object") return null;
+    const id = payload.vendorId ?? payload.userId ?? payload.id ?? payload._id ?? payload.vendor?._id ?? payload.vendor?.id ?? "";
+    const value = String(id ?? "").trim();
+    return value || null;
+  };
+
   /* ---------------- FETCH & API ---------------- */
   const normalizeCategoryItem = (c: any): Category => {
     let img: CategoryImage | null = null;
@@ -1406,6 +1434,7 @@ const rawProducts = res.data?.data ?? res.data?.products ?? [];
       const discountPayload = { value: Number(formDiscount), type: formDiscountType };
       const appliesToValue = [String(formAppliesTo || "All Products")];
 
+      const currentUserId = getCurrentUserId();
       const payload = {
         code: formCode.trim(),
         discount: discountPayload,
@@ -1418,6 +1447,7 @@ const rawProducts = res.data?.data ?? res.data?.products ?? [];
         expiryDate: new Date(formExpiryDate).toISOString(),
         appliesTo: appliesToValue,
         applicableProducts: [],
+        ...(currentUserId ? { vendorId: currentUserId, createdBy: currentUserId } : {}),
       };
       const conf = getAuthConfig();
       await axios.post(COUPONS_BASE, payload, {
@@ -1448,6 +1478,9 @@ const rawProducts = res.data?.data ?? res.data?.products ?? [];
 
   const confirmDeleteCoupon = async () => {
     if (!openDeleteId) return;
+    if (!deleteReason.trim()) {
+      return alert("Please provide a reason before deleting this coupon.");
+    }
     try {
       await axios.delete(`${COUPONS_BASE}/${openDeleteId}`, getAuthConfig());
       setCouponsRaw((prev) =>
@@ -2723,11 +2756,14 @@ const rawProducts = res.data?.data ?? res.data?.products ?? [];
             </div>
             <div className="mb-4 mt-5">
               <p className="text-sm text-gray-700 mb-3">Are you sure you want to delete coupon <strong>{openDeleteCode}</strong> ?</p>
-              <label htmlFor="deleteReason" className="block text-gray-700 text-sm font-medium mb-2">Reason (optional)</label>
-              <textarea id="deleteReason" value={deleteReason} onChange={(e) => setDeleteReason(e.target.value)} rows={3} className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="Optional reason for audit"></textarea>
+              <label htmlFor="deleteReason" className="block text-gray-700 text-sm font-medium mb-2">Reason <span className="text-red-500">*</span></label>
+              <textarea id="deleteReason" value={deleteReason} onChange={(e) => setDeleteReason(e.target.value)} rows={3} className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-400" placeholder="Provide a reason before deleting" />
+              {!deleteReason.trim() && (
+                <p className="text-xs text-red-500 mt-2">Reason is required to delete this coupon.</p>
+              )}
             </div>
             <div className="flex justify-center">
-              <button onClick={confirmDeleteCoupon} className="bg-red-600 text-white px-10 py-3 rounded-xl hover:bg-red-700 text-[15px] font-medium transition w-full max-w-xs">
+              <button onClick={confirmDeleteCoupon} disabled={!deleteReason.trim()} className="bg-red-600 text-white px-10 py-3 rounded-xl hover:bg-red-700 text-[15px] font-medium transition w-full max-w-xs disabled:bg-red-300 disabled:cursor-not-allowed">
                 Delete
               </button>
             </div>
